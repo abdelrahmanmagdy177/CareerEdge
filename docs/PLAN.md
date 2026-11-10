@@ -33,54 +33,64 @@ carries a currency).
 
 ## 2. Architecture
 
-**Modular monolith**: one deployable unit, with a hard boundary around each module.
+**Modular monolith** on Laravel: one application, with a hard boundary around each module.
 
 ```
-src/
-  CareerEdge.Api/                 # Host: Program.cs, endpoints wiring, middleware, SignalR hub
-  CareerEdge.SharedKernel/        # Result/Error types, Money, base entity, clock abstraction
+app/
   Modules/
-    Identity/                     # users, roles, JWT, refresh tokens
-    Profiles/                     # candidate & recruiter profiles, specializations, CVs
-    Scheduling/                   # offerings, availability slots, sessions, state machine
-    Messaging/                    # chat messages, SignalR
-    Payments/                     # payment holds, gateway abstraction, webhooks
+    Identity/                       # users, access tokens (Sanctum), rotating refresh tokens
+      IdentityServiceProvider.php   #   registers the module: migrations, bindings, rate limits
+      routes.php
+      Models/  Enums/  Services/  Contracts/
+      Http/Controllers/  Http/Requests/  Http/Resources/
+      Database/Migrations/  Database/Factories/
+    Profiles/                       # candidate & recruiter profiles, specializations, CVs
+    Scheduling/                     # offerings, availability slots, sessions, state machine
+    Messaging/                      # chat messages, broadcasting
+    Payments/                       # payment holds, gateway abstraction, webhooks
     Reviews/
     Admin/
     Scorecards/        (phase 2)
     QuestionBank/      (phase 3)
     Salary/            (phase 4)
     Archive/           (phase 5)
-tests/
-  CareerEdge.UnitTests/
-  CareerEdge.IntegrationTests/    # Testcontainers PostgreSQL, WebApplicationFactory
-docker-compose.yml                # postgres, minio, api
+  Support/Http/                     # shared: ApiError, ProblemRenderer (problem+json), ApiDate
+routes/api.php                      # lists each module's routes file; all served under /api/v1
+tests/Feature/<Module>/             # HTTP tests against a real PostgreSQL
+tests/Unit/
+docker-compose.yml                  # mock API, postgres (minio from M2)
 ```
 
 Rules:
-- Each module owns its tables, under its own PostgreSQL schema (`identity`, `scheduling`, …).
-  Modules never join across schemas in code. They call each other through a small public
-  interface (e.g. `ISessionQueries`) or through in-process domain events.
-- Folders inside a module are organised by feature (`Features/BookSession/…`), each with
-  its request, validator, handler and endpoint.
+- Each module owns its tables. A module never queries another module's models or tables.
+  It calls a small interface the other module publishes in its `Contracts/` folder
+  (e.g. `ProfileLookup`), or listens to its events.
+- Every module has its own service provider, routes file and migrations folder, so adding
+  a module does not edit another module. The only shared edits are one line in
+  `bootstrap/providers.php` and one in `routes/api.php`.
+- All tables live in PostgreSQL's default `public` schema. Ownership is by the rule above,
+  not by a schema per module: Laravel's migration and test tooling assumes one schema.
+- Controllers stay thin. Input rules live in Form Requests, the response shape in API
+  Resources, and business rules in services and models.
 
 ### Stack
 
 | Concern | Choice | Why |
 |---|---|---|
-| Runtime | .NET 9, ASP.NET Core Minimal APIs | |
-| DB | PostgreSQL 16, EF Core 9 + Npgsql | `jsonb` for scorecard criteria and salary breakdowns |
-| Auth | ASP.NET Identity + JWT access (15 min) + rotating refresh tokens (30 days) | |
-| Validation | FluentValidation | |
-| Realtime chat | SignalR (`/hubs/sessions`) | Built in. Mobile clients exist for Kotlin, Swift and JS |
-| Voice | LiveKit (self-hosted or cloud) behind an `IVoiceProvider` interface | We never build WebRTC ourselves. The API only issues room tokens |
-| Background jobs | Hangfire (PostgreSQL storage) | Slot hold expiry, auto-complete, payment release |
-| File storage | S3-compatible (MinIO locally) behind `IFileStorage` | Pre-signed download URLs |
-| Payments | `IPaymentGateway` with `PaymobGateway` and `FakeGateway` (dev/tests) | Tests never call a real gateway |
-| PDF | QuestPDF | Phase 2 |
-| Transcription | `ITranscriptionService` (Whisper API) | Phase 5 |
-| Logging | Serilog, structured, with a correlation id per request | |
-| API docs | `openapi.yaml` (hand-maintained contract) + Scalar UI | |
+| Runtime | PHP 8.3+, Laravel 13 | The team's main stack |
+| DB | PostgreSQL 16, Eloquent | `jsonb` for scorecard criteria and salary breakdowns. The connection is pinned to UTC |
+| Auth | Laravel Sanctum access tokens (15 min) + our own rotating refresh tokens (30 days) | Sanctum tokens live in the database, so a logout kills them at once |
+| Validation | Form Requests | |
+| Realtime chat | Laravel Reverb (WebSockets, Pusher protocol) | First-party. Pusher client libraries exist for Flutter, Kotlin and Swift |
+| Voice | LiveKit (self-hosted or cloud) behind a `VoiceProvider` interface | We never build WebRTC ourselves. The API only issues room tokens |
+| Background jobs | Laravel queues (database driver) + the scheduler | Slot hold expiry, auto-complete, payment release |
+| File storage | Laravel filesystem with the S3 driver (MinIO locally) | Temporary download URLs |
+| Payments | `PaymentGateway` interface with `PaymobGateway` and `FakeGateway` (dev/tests) | Tests never call a real gateway |
+| PDF | mPDF | Phase 2. Handles Arabic right-to-left text |
+| Transcription | `TranscriptionService` interface (Whisper API) | Phase 5 |
+| Logging | Laravel logging, JSON channel in production | |
+| Code style | Laravel Pint, checked in CI | |
+| API docs | `openapi.yaml` (hand-maintained contract) | |
 
 ---
 
@@ -198,25 +208,26 @@ The payment follows the session:
   `POST /sessions/{id}/checkout`. Replaying the same key returns the original response.
 - `Accept-Language: ar|en` picks the language of specialization names and error `detail`.
 
-### Realtime: SignalR hub `/hubs/sessions`
+### Realtime: Laravel Reverb (WebSockets)
 
-Connect with `?access_token=<jwt>`.
+Reverb speaks the Pusher protocol. The app uses a Pusher client library
+(`pusher_channels_flutter`, `pusher-java`, `PusherSwift`, or Laravel Echo on the web)
+pointed at our own server.
 
-| Direction | Name | Payload |
+- Each session has one private channel: `private-session.{sessionId}`. Only its two
+  participants and admins may subscribe.
+- To subscribe, the client library calls `POST /api/v1/broadcasting/auth` with the normal
+  `Authorization: Bearer <access token>` header.
+- **Messages are sent with `POST /sessions/{id}/messages` only.** The socket is for
+  receiving. That keeps one code path for sending, and it still works when the socket is down.
+
+| Event | Sent by | Payload |
 |---|---|---|
-| client → server | `JoinSession` | `sessionId` |
-| client → server | `LeaveSession` | `sessionId` |
-| client → server | `SendMessage` | `{ sessionId, clientMessageId, body }` |
-| client → server | `Typing` | `sessionId` |
-| server → client | `MessageReceived` | `Message` (same schema as REST) |
-| server → client | `UserTyping` | `{ sessionId, userId }` |
-| server → client | `SessionStatusChanged` | `{ sessionId, status, at }` |
-| server → client | `SessionEndingSoon` | `{ sessionId, endsAt }` (5 min before the end) |
-| server → client | `ScorecardSubmitted` | `{ sessionId, scorecardId }` (phase 2) |
-
-`POST /sessions/{id}/messages` does the same thing as `SendMessage`, as a REST fallback.
-Both go through the same handler. Hub errors are sent as a `HubException` whose message
-is one of the error `code`s.
+| `message.sent` | server | `Message` (same schema as REST) |
+| `session.status-changed` | server | `{ sessionId, status, at }` |
+| `session.ending-soon` | server | `{ sessionId, endsAt }` (5 min before the end) |
+| `scorecard.submitted` | server | `{ sessionId, scorecardId }` (phase 2) |
+| `client-typing` | the other participant | `{ userId }`. A client event ("whisper"): it goes straight to the other participant and is not stored |
 
 ---
 
@@ -224,12 +235,12 @@ is one of the error `code`s.
 
 | # | Deliverable | Done when |
 |---|---|---|
-| M0 | Repo skeleton, docker-compose, CI (build + test), health check | `docker compose up` gives a working `/health` |
-| M1 | Identity: register, login, refresh, logout, me | Integration tests cover token rotation and reuse detection |
+| M0 | Laravel skeleton, module layout, error format, docker-compose (postgres), CI, health check | `/health` answers and CI is green |
+| M1 | Identity: register, login, refresh, logout, me | Feature tests cover token rotation and reuse detection |
 | M2 | Profiles, specializations (seeded), CV upload/download | File type and size limits tested (PDF/DOCX, ≤ 5 MB) |
 | M3 | Recruiter offerings, availability, search | Overlap rules tested |
 | M4 | Session booking + FakeGateway checkout + webhook + hold expiry job | Full booking flow test, from create to confirmed |
-| M5 | Chat (SignalR + REST), join token, lifecycle jobs | State machine has a unit test per transition |
+| M5 | Chat (Reverb + REST), join token, lifecycle jobs | State machine has a unit test per transition |
 | M6 | Cancellation and refunds, no-show, release job, disputes, reviews | Every rule in §4 has a test |
 | M7 | Admin: approve/reject recruiters, resolve disputes | |
 | M8 | Contract conformance test: each endpoint in openapi.yaml exists with matching status codes | CI fails on drift |
@@ -253,7 +264,7 @@ Each one is self-contained and is implemented against the endpoints already in t
   scorecards that were already submitted.
 - `GET /sessions/{id}/scorecard/pdf` returns `application/pdf`. It is readable by the
   candidate, the recruiter and admins.
-- The `ScorecardSubmitted` hub event is sent to the candidate.
+- The `scorecard.submitted` event is broadcast on the session channel.
 
 ### FR-2: Interactive Question Bank (phase 3)
 - Each question has a specialization, a `roleLevel` (`intern | junior | mid | senior | lead`),
@@ -288,20 +299,23 @@ Each one is self-contained and is implemented against the endpoints already in t
 
 ## 8. Testing Strategy
 
-- **Unit**: state machine transitions, refund calculation, weighted score, overlap checks.
-  The clock is injected (`TimeProvider`), so tests never depend on the real time.
-- **Integration**: real PostgreSQL through Testcontainers, `WebApplicationFactory`,
-  FakeGateway and fake storage. One test file per feature folder.
+- **Feature tests** are the main kind: real HTTP requests against the app and a real
+  PostgreSQL (`RefreshDatabase`), with the fake payment gateway and `Storage::fake()`.
+  One test class per feature area, under `tests/Feature/<Module>/`.
+- **Unit tests** cover pure logic: state machine transitions, refund calculation, weighted
+  score, overlap checks.
+- Time is moved with Laravel's `travel()` helpers. Code reads the time with `now()`, never
+  `time()` or `new DateTime`, so tests can control it.
 - **Contract**: a test that loads `openapi.yaml` and checks that every path and method is
-  mapped, and that responses validate against the schemas.
-- CI runs on every push. The `main` branch must stay green.
+  routed, and that responses validate against the schemas.
+- CI runs Pint and the tests on every push. The `main` branch must stay green.
 
 ## 9. Security Checklist
 
 - Every resource lookup filters by ownership or participation. Unauthorised access returns
   `404`, not `403`, so the API does not reveal that the resource exists.
 - Refresh tokens are stored hashed and rotated on each use. If an old token is reused, the
-  whole token family is revoked.
+  whole token family is revoked. Logout and rotation delete that login's access tokens at once.
 - Rate limits: auth endpoints get 10 requests/min per IP. Message sending gets 30 messages/min per user.
 - Payment webhooks are verified with the gateway HMAC before any processing, and are
   idempotent on `gatewayRef`.

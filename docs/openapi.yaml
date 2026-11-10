@@ -14,8 +14,9 @@ info:
     - Operations marked `x-phase: 2..5` belong to later phases. Their shape is fixed now so the
       app can be designed against it, but they return 404 until the phase ships.
 
-    **Realtime**: the SignalR hub at `/hubs/sessions` is described in docs/PLAN.md §5. Its
-    `Message` payload is identical to the `Message` schema here.
+    **Realtime**: chat events arrive over WebSockets (Laravel Reverb, Pusher protocol), described
+    in docs/PLAN.md §5. The `message.sent` payload is identical to the `Message` schema here.
+    Messages are always sent with `POST /sessions/{id}/messages`.
 
     **Error codes**
     | code | HTTP | meaning |
@@ -798,7 +799,7 @@ paths:
     post:
       operationId: sendMessage
       tags: [Chat]
-      summary: Send a message (REST fallback to the hub's SendMessage)
+      summary: Send a message
       description: Idempotent on `clientMessageId`. A duplicate returns 200 with the original message.
       requestBody:
         required: true
@@ -1414,7 +1415,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      description: The `accessToken` from register, login or refresh. Treat it as an opaque string.
 
   parameters:
     Page:

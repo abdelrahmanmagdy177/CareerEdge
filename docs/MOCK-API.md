@@ -75,8 +75,8 @@ In app code, send `Prefer` from a debug-only interceptor. Never ship it in relea
 - **It keeps no state.** `POST /sessions` does not make the session appear in
   `GET /sessions`, and a cancel does not change anything. Use `Prefer: example=…` to show
   each state.
-- **No realtime chat.** The SignalR hub (`/hubs/sessions`, see [PLAN.md §5](./PLAN.md)) is
-  not mocked. Build the chat UI on `GET/POST /sessions/{id}/messages` first, then add the hub.
+- **No realtime chat.** The WebSocket server (Laravel Reverb, see [PLAN.md §5](./PLAN.md)) is
+  not mocked. Build the chat UI on `GET/POST /sessions/{id}/messages` first, then add the socket.
 - **No real payment page or voice room.** `paymentUrl` and the LiveKit token are placeholders.
 - **Phase 2–5 endpoints** (scorecards, questions, salary, archive) also respond, but the real
   backend will return `404` for them until each phase ships.

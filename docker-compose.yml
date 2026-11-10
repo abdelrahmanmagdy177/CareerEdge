@@ -1,5 +1,5 @@
 services:
-  # Mock API generated from docs/openapi.yaml. Lets the app team work before the backend exists.
+  # Mock API generated from docs/openapi.yaml. Lets the app team work before the backend is finished.
   # Run: docker compose up mock   → http://localhost:4010
   mock:
     image: stoplight/prism:5.12.0
@@ -9,4 +9,27 @@ services:
     ports:
       - "4010:4010"
 
-  # postgres, minio and the real API are added in milestone M0 (see docs/PLAN.md §6).
+  # Local development database. The credentials match .env.example.
+  # Run: docker compose up -d postgres
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: careeredge
+      POSTGRES_PASSWORD: careeredge
+      POSTGRES_DB: careeredge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Runs once, when the data volume is first created: adds the careeredge_test database.
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U careeredge"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # minio (file storage) is added in milestone M2 (see docs/PLAN.md §6).
+
+volumes:
+  postgres-data:
