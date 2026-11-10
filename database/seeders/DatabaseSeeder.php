@@ -2,15 +2,18 @@
 
 namespace Database\Seeders;
 
+use App\Modules\Profiles\Database\Seeders\SpecializationSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Reference data the app cannot work without. Every seeder listed here is safe to re-run.
      */
     public function run(): void
     {
-        // Module seeders are called from here as modules are added (specializations in M2).
+        $this->call([
+            SpecializationSeeder::class,
+        ]);
     }
 }
