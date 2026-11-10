@@ -15,6 +15,8 @@ and get structured feedback.
 
 ### For app developers
 
+- **Start here:** [`docs/MOCK-API.md`](docs/MOCK-API.md). Run `docker compose up mock` to get a
+  working API at `http://localhost:4010` with realistic data, before the backend exists.
 - View the contract by pasting `docs/openapi.yaml` into <https://editor.swagger.io>, or by
   running `npx @redocly/cli preview-docs docs/openapi.yaml`.
 - Generate a client with `openapi-generator-cli generate -i docs/openapi.yaml -g dart-dio`.

@@ -568,6 +568,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+              examples:
+                pending_payment: { $ref: '#/components/examples/Session_pending_payment' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -606,6 +608,8 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/Session' }
 
+              examples:
+                default: { $ref: '#/components/examples/SessionPage' }
   /sessions/{sessionId}:
     parameters:
       - { $ref: '#/components/parameters/SessionId' }
@@ -619,6 +623,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+              examples:
+                confirmed: { $ref: '#/components/examples/Session_confirmed' }
+                pending_payment: { $ref: '#/components/examples/Session_pending_payment' }
+                in_progress: { $ref: '#/components/examples/Session_in_progress' }
+                completed: { $ref: '#/components/examples/Session_completed' }
+                completed_reviewed: { $ref: '#/components/examples/Session_completed_reviewed' }
+                cancelled: { $ref: '#/components/examples/Session_cancelled' }
+                disputed: { $ref: '#/components/examples/Session_disputed' }
+                chat_cv_review: { $ref: '#/components/examples/Session_chat_cv_review' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /sessions/{sessionId}/checkout:
@@ -707,6 +720,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+              examples:
+                cancelled: { $ref: '#/components/examples/Session_cancelled' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
@@ -727,6 +742,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JoinResponse' }
+              examples:
+                voice: { $ref: '#/components/examples/JoinResponse_voice' }
+                chat: { $ref: '#/components/examples/JoinResponse_chat' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
@@ -743,6 +761,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Session' }
+              examples:
+                completed: { $ref: '#/components/examples/Session_completed' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -1470,21 +1490,51 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            TOKEN_EXPIRED:
+              value: { type: https://careeredge.dev/errors/token-expired, title: Access token expired, status: 401, code: TOKEN_EXPIRED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            INVALID_CREDENTIALS:
+              value: { type: https://careeredge.dev/errors/invalid-credentials, title: Email or password is incorrect, status: 401, code: INVALID_CREDENTIALS, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
     Forbidden:
       description: Wrong role (FORBIDDEN_ROLE) or recruiter not approved (RECRUITER_NOT_APPROVED)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            FORBIDDEN_ROLE:
+              value: { type: https://careeredge.dev/errors/forbidden-role, title: This action needs another role, status: 403, code: FORBIDDEN_ROLE, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            RECRUITER_NOT_APPROVED:
+              value: { type: https://careeredge.dev/errors/recruiter-not-approved, title: Recruiter is not approved yet, status: 403, code: RECRUITER_NOT_APPROVED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
     NotFound:
       description: Does not exist, or the caller has no access to it
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            NOT_FOUND:
+              value: { type: https://careeredge.dev/errors/not-found, title: Not found, status: 404, code: NOT_FOUND, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
     Conflict:
       description: Business rule violation. See `code`.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            SLOT_UNAVAILABLE:
+              value: { type: https://careeredge.dev/errors/slot-unavailable, title: Slot unavailable, status: 409, code: SLOT_UNAVAILABLE, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            SLOT_OVERLAP:
+              value: { type: https://careeredge.dev/errors/slot-overlap, title: Slot overlaps another slot, status: 409, code: SLOT_OVERLAP, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            CANDIDATE_TIME_CONFLICT:
+              value: { type: https://careeredge.dev/errors/candidate-time-conflict, title: You already have a session at this time, status: 409, code: CANDIDATE_TIME_CONFLICT, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            INVALID_SESSION_STATE:
+              value: { type: https://careeredge.dev/errors/invalid-session-state, title: Action not allowed in the current session status, status: 409, code: INVALID_SESSION_STATE, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            SESSION_NOT_JOINABLE:
+              value: { type: https://careeredge.dev/errors/session-not-joinable, title: Session can be joined from 10 minutes before start, status: 409, code: SESSION_NOT_JOINABLE, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            CHAT_CLOSED:
+              value: { type: https://careeredge.dev/errors/chat-closed, title: Chat is closed, status: 409, code: CHAT_CLOSED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            ALREADY_REVIEWED:
+              value: { type: https://careeredge.dev/errors/already-reviewed, title: Session already reviewed, status: 409, code: ALREADY_REVIEWED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            EMAIL_TAKEN:
+              value: { type: https://careeredge.dev/errors/email-taken, title: Email is already registered, status: 409, code: EMAIL_TAKEN, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
     TooManyRequests:
       description: Rate limited. See the `Retry-After` header.
       headers:
@@ -1493,6 +1543,9 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            RATE_LIMITED:
+              value: { type: https://careeredge.dev/errors/rate-limited, title: Too many requests, status: 429, code: RATE_LIMITED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
 
   schemas:
     # ── shared ──
@@ -1500,18 +1553,19 @@ components:
       type: object
       required: [title, status, code]
       properties:
-        type: { type: string, format: uri }
-        title: { type: string }
-        status: { type: integer }
-        detail: { type: string, description: 'Localized, human readable' }
-        code: { type: string, description: Stable machine-readable error code (see the table in info.description) }
-        traceId: { type: string }
+        type: { type: string, format: uri, examples: [https://careeredge.dev/errors/slot-unavailable] }
+        title: { type: string, examples: [Slot unavailable] }
+        status: { type: integer, examples: [409] }
+        detail: { type: string, description: 'Localized, human readable', examples: [This slot was just booked by someone else.] }
+        code: { type: string, description: Stable machine-readable error code (see the table in info.description), examples: [SLOT_UNAVAILABLE] }
+        traceId: { type: string, examples: [00-4bf92f3577b34da6a3ce929d0e0e4736-01] }
         errors:
           type: object
           description: Field name to messages (400 only)
           additionalProperties:
             type: array
             items: { type: string }
+          examples: [{}]
     Money:
       type: object
       required: [amountMinor, currency]
@@ -1522,15 +1576,15 @@ components:
       type: object
       required: [page, pageSize, totalCount]
       properties:
-        page: { type: integer }
-        pageSize: { type: integer }
-        totalCount: { type: integer }
+        page: { type: integer, examples: [1] }
+        pageSize: { type: integer, examples: [20] }
+        totalCount: { type: integer, examples: [1] }
     DownloadUrl:
       type: object
       required: [url, expiresAt]
       properties:
-        url: { type: string, format: uri }
-        expiresAt: { type: string, format: date-time }
+        url: { type: string, format: uri, examples: [https://files.careeredge.dev/cvs/c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04?X-Amz-Signature=mock] }
+        expiresAt: { type: string, format: date-time, examples: ['2026-11-10T22:05:00Z'] }
 
     # ── enums ──
     Role: { type: string, enum: [candidate, recruiter, admin] }
@@ -1554,59 +1608,62 @@ components:
       type: object
       required: [email, password, fullName, role]
       properties:
-        email: { type: string, format: email, maxLength: 254 }
+        email: { type: string, format: email, maxLength: 254, examples: [ahmed.hassan@example.com] }
         password:
           type: string
           minLength: 8
           maxLength: 128
           description: At least one letter and one digit
-        fullName: { type: string, minLength: 2, maxLength: 100 }
+          examples: [Passw0rd!]
+        fullName: { type: string, minLength: 2, maxLength: 100, examples: [Ahmed Hassan] }
         role:
           type: string
           enum: [candidate, recruiter]
           description: Admins are created by seed or CLI only
-        phone: { type: string, pattern: '^\+[1-9]\d{7,14}$' }
+          examples: [candidate]
+        phone: { type: string, pattern: '^\+[1-9]\d{ 7,14 }$', examples: ['+201001234567'] }
         locale: { type: string, enum: [ar, en], default: ar }
     LoginRequest:
       type: object
       required: [email, password]
       properties:
-        email: { type: string, format: email }
-        password: { type: string }
+        email: { type: string, format: email, examples: [ahmed.hassan@example.com] }
+        password: { type: string, examples: [Passw0rd!] }
     RefreshRequest:
       type: object
       required: [refreshToken]
       properties:
-        refreshToken: { type: string }
+        refreshToken: { type: string, examples: [rt_8f2b1c9d4e7a4b0f9c3d] }
     AuthResponse:
       type: object
       required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user]
       properties:
-        accessToken: { type: string }
-        accessTokenExpiresAt: { type: string, format: date-time }
-        refreshToken: { type: string }
-        refreshTokenExpiresAt: { type: string, format: date-time }
+        accessToken: { type: string, examples: [eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.access] }
+        accessTokenExpiresAt: { type: string, format: date-time, examples: ['2026-11-10T22:15:00Z'] }
+        refreshToken: { type: string, examples: [rt_8f2b1c9d4e7a4b0f9c3d] }
+        refreshTokenExpiresAt: { type: string, format: date-time, examples: ['2026-12-10T22:00:00Z'] }
         user: { $ref: '#/components/schemas/User' }
     User:
       type: object
       required: [id, email, fullName, role, locale, createdAt, hasProfile]
       properties:
-        id: { type: string, format: uuid }
-        email: { type: string, format: email }
-        fullName: { type: string }
-        role: { $ref: '#/components/schemas/Role' }
-        phone: { type: [string, 'null'] }
-        locale: { type: string, enum: [ar, en] }
+        id: { type: string, format: uuid, examples: [3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01] }
+        email: { type: string, format: email, examples: [ahmed.hassan@example.com] }
+        fullName: { type: string, examples: [Ahmed Hassan] }
+        role: { $ref: '#/components/schemas/Role', examples: [candidate] }
+        phone: { type: [string, 'null'], examples: ['+201001234567'] }
+        locale: { type: string, enum: [ar, en], examples: [ar] }
         hasProfile:
           type: boolean
           description: False means the app should send the user to onboarding
-        createdAt: { type: string, format: date-time }
+          examples: [true]
+        createdAt: { type: string, format: date-time, examples: ['2026-11-01T10:00:00Z'] }
     UpdateMeRequest:
       type: object
       minProperties: 1
       properties:
-        fullName: { type: string, minLength: 2, maxLength: 100 }
-        phone: { type: [string, 'null'], pattern: '^\+[1-9]\d{7,14}$' }
+        fullName: { type: string, minLength: 2, maxLength: 100, examples: [Ahmed Hassan] }
+        phone: { type: [string, 'null'], pattern: '^\+[1-9]\d{ 7,14 }$', examples: ['+201001234567'] }
         locale: { type: string, enum: [ar, en] }
 
     # ── profiles ──
@@ -1614,101 +1671,105 @@ components:
       type: object
       required: [id, slug, name]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: string, format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000101] }
         slug: { type: string, examples: [backend] }
-        name: { type: string, description: Localized via Accept-Language }
-        parentId: { type: [string, 'null'], format: uuid }
+        name: { type: string, description: Localized via Accept-Language, examples: [Backend Development] }
+        parentId: { type: [string, 'null'], format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000100] }
     CandidateProfileInput:
       type: object
       required: [specializationId, targetRole, yearsOfExperience]
       properties:
-        headline: { type: string, maxLength: 150 }
-        specializationId: { type: string, format: uuid }
+        headline: { type: string, maxLength: 150, examples: ['Backend developer, 3 years with .NET'] }
+        specializationId: { type: string, format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000101] }
         targetRole: { type: string, maxLength: 100, examples: [Senior Backend Engineer] }
-        targetLevel: { $ref: '#/components/schemas/RoleLevel' }
-        yearsOfExperience: { type: integer, minimum: 0, maximum: 50 }
+        targetLevel: { $ref: '#/components/schemas/RoleLevel', examples: [mid] }
+        yearsOfExperience: { type: integer, minimum: 0, maximum: 50, examples: [3] }
     CandidateProfile:
       allOf:
         - { $ref: '#/components/schemas/CandidateProfileInput' }
         - type: object
           required: [userId, specialization]
           properties:
-            userId: { type: string, format: uuid }
+            userId: { type: string, format: uuid, examples: [3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01] }
             specialization: { $ref: '#/components/schemas/Specialization' }
     RecruiterProfileInput:
       type: object
       required: [bio, yearsOfExperience, specializationIds, timezone]
       properties:
-        bio: { type: string, minLength: 50, maxLength: 2000 }
-        yearsOfExperience: { type: integer, minimum: 1, maximum: 50 }
-        currentTitle: { type: string, maxLength: 100 }
-        linkedinUrl: { type: string, format: uri }
+        bio: { type: string, minLength: 50, maxLength: 2000, examples: ['Technical recruiter for 8 years, hiring backend and mobile engineers for fintech and e-commerce companies in Egypt and the Gulf.'] }
+        yearsOfExperience: { type: integer, minimum: 1, maximum: 50, examples: [8] }
+        currentTitle: { type: string, maxLength: 100, examples: [Senior Technical Recruiter] }
+        linkedinUrl: { type: string, format: uri, examples: [https://www.linkedin.com/in/sara-mostafa] }
         specializationIds:
           type: array
           minItems: 1
           maxItems: 5
           uniqueItems: true
           items: { type: string, format: uuid }
+          examples: [[1b2c3d4e-0000-4000-8000-000000000101]]
         languages:
           type: array
           items: { type: string, enum: [ar, en] }
           default: [ar]
+          examples: [[ar, en]]
         timezone: { type: string, description: IANA timezone, examples: [Africa/Cairo] }
     RecruiterProfile:
       type: object
       required: [userId, fullName, bio, yearsOfExperience, specializations, timezone, verificationStatus, ratingAvg, ratingCount, cancellationCount]
       properties:
-        userId: { type: string, format: uuid }
-        fullName: { type: string }
-        avatarUrl: { type: [string, 'null'], format: uri }
-        bio: { type: string }
-        yearsOfExperience: { type: integer }
-        currentTitle: { type: [string, 'null'] }
-        linkedinUrl: { type: [string, 'null'], format: uri }
+        userId: { type: string, format: uuid, examples: [7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02] }
+        fullName: { type: string, examples: [Sara Mostafa] }
+        avatarUrl: { type: [string, 'null'], format: uri, examples: [https://cdn.careeredge.dev/avatars/sara.jpg] }
+        bio: { type: string, examples: ['Technical recruiter for 8 years, hiring backend and mobile engineers for fintech and e-commerce companies in Egypt and the Gulf.'] }
+        yearsOfExperience: { type: integer, examples: [8] }
+        currentTitle: { type: [string, 'null'], examples: [Senior Technical Recruiter] }
+        linkedinUrl: { type: [string, 'null'], format: uri, examples: [https://www.linkedin.com/in/sara-mostafa] }
         specializations:
           type: array
           items: { $ref: '#/components/schemas/Specialization' }
         languages:
           type: array
           items: { type: string, enum: [ar, en] }
+          examples: [[ar, en]]
         timezone: { type: string }
-        verificationStatus: { $ref: '#/components/schemas/VerificationStatus' }
-        verificationNote: { type: [string, 'null'] }
-        ratingAvg: { type: number, description: '0 when there are no reviews' }
-        ratingCount: { type: integer }
-        cancellationCount: { type: integer }
+        verificationStatus: { $ref: '#/components/schemas/VerificationStatus', examples: [approved] }
+        verificationNote: { type: [string, 'null'], examples: [null] }
+        ratingAvg: { type: number, description: '0 when there are no reviews', examples: [4.8] }
+        ratingCount: { type: integer, examples: [37] }
+        cancellationCount: { type: integer, examples: [1] }
     RecruiterSummary:
       type: object
       description: Search result card
       required: [userId, fullName, yearsOfExperience, specializations, ratingAvg, ratingCount]
       properties:
-        userId: { type: string, format: uuid }
-        fullName: { type: string }
-        avatarUrl: { type: [string, 'null'], format: uri }
-        currentTitle: { type: [string, 'null'] }
-        yearsOfExperience: { type: integer }
+        userId: { type: string, format: uuid, examples: [7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02] }
+        fullName: { type: string, examples: [Sara Mostafa] }
+        avatarUrl: { type: [string, 'null'], format: uri, examples: [https://cdn.careeredge.dev/avatars/sara.jpg] }
+        currentTitle: { type: [string, 'null'], examples: [Senior Technical Recruiter] }
+        yearsOfExperience: { type: integer, examples: [8] }
         specializations:
           type: array
           items: { $ref: '#/components/schemas/Specialization' }
-        ratingAvg: { type: number }
-        ratingCount: { type: integer }
+        ratingAvg: { type: number, examples: [4.8] }
+        ratingCount: { type: integer, examples: [37] }
         startingPrice:
           description: Lowest active offering price matching the filters
           oneOf:
             - { $ref: '#/components/schemas/Money' }
             - { type: 'null' }
-        nextAvailableAt: { type: [string, 'null'], format: date-time }
+        nextAvailableAt: { type: [string, 'null'], format: date-time, examples: ['2026-11-20T16:00:00Z'] }
     RecruiterPublic:
       allOf:
         - { $ref: '#/components/schemas/RecruiterSummary' }
         - type: object
           required: [bio, languages, offerings]
           properties:
-            bio: { type: string }
+            bio: { type: string, examples: ['Technical recruiter for 8 years, hiring backend and mobile engineers for fintech and e-commerce companies in Egypt and the Gulf.'] }
             languages:
               type: array
               items: { type: string }
-            linkedinUrl: { type: [string, 'null'], format: uri }
+              examples: [[ar, en]]
+            linkedinUrl: { type: [string, 'null'], format: uri, examples: [https://www.linkedin.com/in/sara-mostafa] }
             offerings:
               type: array
               description: Active offerings only
@@ -1719,22 +1780,22 @@ components:
       type: object
       required: [id, fileName, contentType, sizeBytes, uploadedAt]
       properties:
-        id: { type: string, format: uuid }
-        fileName: { type: string }
+        id: { type: string, format: uuid, examples: [c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04] }
+        fileName: { type: string, examples: [Ahmed_Hassan_CV.pdf] }
         contentType:
           type: string
           enum: [application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document]
-        sizeBytes: { type: integer }
-        uploadedAt: { type: string, format: date-time }
+        sizeBytes: { type: integer, examples: [248311] }
+        uploadedAt: { type: string, format: date-time, examples: ['2026-11-05T09:30:00Z'] }
 
     # ── offerings & slots ──
     OfferingInput:
       type: object
       required: [sessionType, mode, durationMinutes, price]
       properties:
-        sessionType: { $ref: '#/components/schemas/SessionType' }
-        mode: { $ref: '#/components/schemas/SessionMode' }
-        durationMinutes: { type: integer, enum: [30, 45, 60] }
+        sessionType: { $ref: '#/components/schemas/SessionType', examples: [mock_interview] }
+        mode: { $ref: '#/components/schemas/SessionMode', examples: [voice] }
+        durationMinutes: { type: integer, enum: [30, 45, 60], examples: [45] }
         price:
           allOf:
             - { $ref: '#/components/schemas/Money' }
@@ -1745,127 +1806,135 @@ components:
         - type: object
           required: [id, recruiterId, isActive]
           properties:
-            id: { type: string, format: uuid }
-            recruiterId: { type: string, format: uuid }
-            isActive: { type: boolean }
+            id: { type: string, format: uuid, examples: [d1e2f3a4-5b6c-4d7e-8f9a-0b1c2d3e4f05] }
+            recruiterId: { type: string, format: uuid, examples: [7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02] }
+            isActive: { type: boolean, examples: [true] }
     SlotInput:
       type: object
       required: [startsAt, endsAt]
       properties:
-        startsAt: { type: string, format: date-time }
+        startsAt: { type: string, format: date-time, examples: ['2026-11-20T16:00:00Z'] }
         endsAt:
           type: string
           format: date-time
           description: At least 30 min after startsAt, at most 4 h
+          examples: ['2026-11-20T17:00:00Z']
     Slot:
       type: object
       required: [id, recruiterId, startsAt, endsAt, status]
       properties:
-        id: { type: string, format: uuid }
-        recruiterId: { type: string, format: uuid }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        status: { $ref: '#/components/schemas/SlotStatus' }
+        id: { type: string, format: uuid, examples: [e2f3a4b5-6c7d-4e8f-9a0b-1c2d3e4f5a06] }
+        recruiterId: { type: string, format: uuid, examples: [7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02] }
+        startsAt: { type: string, format: date-time, examples: ['2026-11-20T16:00:00Z'] }
+        endsAt: { type: string, format: date-time, examples: ['2026-11-20T17:00:00Z'] }
+        status: { $ref: '#/components/schemas/SlotStatus', examples: [open] }
 
     # ── sessions ──
     CreateSessionRequest:
       type: object
       required: [offeringId, slotId]
       properties:
-        offeringId: { type: string, format: uuid }
+        offeringId: { type: string, format: uuid, examples: [d1e2f3a4-5b6c-4d7e-8f9a-0b1c2d3e4f05] }
         slotId:
           type: string
           format: uuid
           description: Must belong to the offering's recruiter, be open, and be long enough for the offering
+          examples: [e2f3a4b5-6c7d-4e8f-9a0b-1c2d3e4f5a06]
         cvId:
           type: string
           format: uuid
           description: Required when the offering's sessionType is cv_review
+          examples: [c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04]
         candidateNotes:
           type: string
           maxLength: 1000
           description: What the candidate wants to focus on, e.g. the job description
+          examples: [Interview at a fintech next week. Please focus on system design.]
     ParticipantSummary:
       type: object
       required: [userId, fullName]
       properties:
-        userId: { type: string, format: uuid }
-        fullName: { type: string }
-        avatarUrl: { type: [string, 'null'], format: uri }
+        userId: { type: string, format: uuid, examples: [3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01] }
+        fullName: { type: string, examples: [Ahmed Hassan] }
+        avatarUrl: { type: [string, 'null'], format: uri, examples: [null] }
     Session:
       type: object
       required: [id, type, mode, status, candidate, recruiter, scheduledStart, scheduledEnd, durationMinutes, price, chatOpen, createdAt]
       properties:
-        id: { type: string, format: uuid }
-        type: { $ref: '#/components/schemas/SessionType' }
-        mode: { $ref: '#/components/schemas/SessionMode' }
-        status: { $ref: '#/components/schemas/SessionStatus' }
-        candidate: { $ref: '#/components/schemas/ParticipantSummary' }
-        recruiter: { $ref: '#/components/schemas/ParticipantSummary' }
+        id: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        type: { $ref: '#/components/schemas/SessionType', examples: [mock_interview] }
+        mode: { $ref: '#/components/schemas/SessionMode', examples: [voice] }
+        status: { $ref: '#/components/schemas/SessionStatus', examples: [confirmed] }
+        candidate: { $ref: '#/components/schemas/ParticipantSummary', examples: [{ userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }] }
+        recruiter: { $ref: '#/components/schemas/ParticipantSummary', examples: [{ userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }] }
         specialization:
           oneOf:
             - { $ref: '#/components/schemas/Specialization' }
             - { type: 'null' }
           description: Taken from the candidate profile when the session was booked
-        scheduledStart: { type: string, format: date-time }
-        scheduledEnd: { type: string, format: date-time }
-        durationMinutes: { type: integer }
-        actualStart: { type: [string, 'null'], format: date-time }
-        actualEnd: { type: [string, 'null'], format: date-time }
+        scheduledStart: { type: string, format: date-time, examples: ['2026-11-20T16:00:00Z'] }
+        scheduledEnd: { type: string, format: date-time, examples: ['2026-11-20T16:45:00Z'] }
+        durationMinutes: { type: integer, examples: [45] }
+        actualStart: { type: [string, 'null'], format: date-time, examples: [null] }
+        actualEnd: { type: [string, 'null'], format: date-time, examples: [null] }
         holdExpiresAt:
           type: [string, 'null']
           format: date-time
           description: Set only while pending_payment
+          examples: [null]
         price: { $ref: '#/components/schemas/Money' }
         paymentStatus:
           oneOf:
             - { $ref: '#/components/schemas/PaymentStatus' }
             - { type: 'null' }
+          examples: [held]
         cv:
           oneOf:
             - { $ref: '#/components/schemas/Cv' }
             - { type: 'null' }
-        candidateNotes: { type: [string, 'null'] }
-        chatOpen: { type: boolean, description: True if messages can be sent now }
-        canJoinFrom: { type: string, format: date-time, description: scheduledStart - 10 min }
+        candidateNotes: { type: [string, 'null'], examples: [Interview at a fintech next week. Please focus on system design.] }
+        chatOpen: { type: boolean, description: True if messages can be sent now, examples: [true] }
+        canJoinFrom: { type: string, format: date-time, description: scheduledStart - 10 min, examples: ['2026-11-20T15:50:00Z'] }
         cancelledBy:
           oneOf:
             - { type: string, enum: [candidate, recruiter, system] }
             - { type: 'null' }
-        cancelReason: { type: [string, 'null'] }
-        hasReview: { type: boolean }
-        hasScorecard: { type: boolean, description: Phase 2. Always false before then. }
-        createdAt: { type: string, format: date-time }
+          examples: [null]
+        cancelReason: { type: [string, 'null'], examples: [null] }
+        hasReview: { type: boolean, examples: [false] }
+        hasScorecard: { type: boolean, description: Phase 2. Always false before then., examples: [false] }
+        createdAt: { type: string, format: date-time, examples: ['2026-11-10T22:00:00Z'] }
     CheckoutResponse:
       type: object
       required: [paymentId, paymentUrl, expiresAt]
       properties:
-        paymentId: { type: string, format: uuid }
-        paymentUrl: { type: string, format: uri }
-        expiresAt: { type: string, format: date-time, description: Equal to the session's holdExpiresAt }
+        paymentId: { type: string, format: uuid, examples: [f3a4b5c6-7d8e-4f9a-0b1c-2d3e4f5a6b07] }
+        paymentUrl: { type: string, format: uri, examples: [https://accept.paymob.com/mock-checkout/abc123] }
+        expiresAt: { type: string, format: date-time, description: Equal to the session's holdExpiresAt, examples: ['2026-11-10T22:15:00Z'] }
     Payment:
       type: object
       required: [id, sessionId, amount, status, refunded]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
+        id: { type: string, format: uuid, examples: [f3a4b5c6-7d8e-4f9a-0b1c-2d3e4f5a6b07] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
         amount: { $ref: '#/components/schemas/Money' }
         refunded: { $ref: '#/components/schemas/Money' }
-        status: { $ref: '#/components/schemas/PaymentStatus' }
-        heldAt: { type: [string, 'null'], format: date-time }
-        releaseScheduledAt: { type: [string, 'null'], format: date-time }
-        releasedAt: { type: [string, 'null'], format: date-time }
-        refundedAt: { type: [string, 'null'], format: date-time }
+        status: { $ref: '#/components/schemas/PaymentStatus', examples: [held] }
+        heldAt: { type: [string, 'null'], format: date-time, examples: ['2026-11-10T22:03:00Z'] }
+        releaseScheduledAt: { type: [string, 'null'], format: date-time, examples: [null] }
+        releasedAt: { type: [string, 'null'], format: date-time, examples: [null] }
+        refundedAt: { type: [string, 'null'], format: date-time, examples: [null] }
     CancellationQuote:
       type: object
       required: [refundPercent, refundAmount, policy]
       properties:
-        refundPercent: { type: integer, enum: [0, 50, 100] }
+        refundPercent: { type: integer, enum: [0, 50, 100], examples: [100] }
         refundAmount: { $ref: '#/components/schemas/Money' }
         policy:
           type: string
           enum: [candidate_early, candidate_late, recruiter, unpaid]
           description: '`unpaid` means pending_payment, so there is nothing to refund'
+          examples: [candidate_early]
     JoinResponse:
       type: object
       required: [session]
@@ -1889,73 +1958,74 @@ components:
       type: object
       required: [clientMessageId, body]
       properties:
-        clientMessageId: { type: string, format: uuid }
-        body: { type: string, minLength: 1, maxLength: 4000 }
+        clientMessageId: { type: string, format: uuid, examples: [b5c6d7e8-9f0a-4b1c-2d3e-4f5a6b7c8d09] }
+        body: { type: string, minLength: 1, maxLength: 4000, examples: [أهلا، أنا جاهز] }
     Message:
       type: object
       required: [id, sessionId, senderId, clientMessageId, body, sentAt]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
-        senderId: { type: string, format: uuid }
-        clientMessageId: { type: string, format: uuid }
-        body: { type: string }
-        sentAt: { type: string, format: date-time }
+        id: { type: string, format: uuid, examples: [a4b5c6d7-8e9f-4a0b-1c2d-3e4f5a6b7c08] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        senderId: { type: string, format: uuid, examples: [7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02] }
+        clientMessageId: { type: string, format: uuid, examples: [b5c6d7e8-9f0a-4b1c-2d3e-4f5a6b7c8d09] }
+        body: { type: string, examples: [أهلا أحمد، جاهز نبدأ؟] }
+        sentAt: { type: string, format: date-time, examples: ['2026-11-20T15:58:00Z'] }
 
     # ── reviews & disputes ──
     ReviewInput:
       type: object
       required: [rating]
       properties:
-        rating: { type: integer, minimum: 1, maximum: 5 }
-        comment: { type: string, maxLength: 1000 }
+        rating: { type: integer, minimum: 1, maximum: 5, examples: [5] }
+        comment: { type: string, maxLength: 1000, examples: [Very practical feedback on my system design answers.] }
     Review:
       type: object
       required: [id, sessionId, rating, candidateFirstName, createdAt]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
-        rating: { type: integer }
-        comment: { type: [string, 'null'] }
-        candidateFirstName: { type: string, description: Only the first name is shown publicly }
-        createdAt: { type: string, format: date-time }
+        id: { type: string, format: uuid, examples: [c6d7e8f9-0a1b-4c2d-3e4f-5a6b7c8d9e10] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        rating: { type: integer, examples: [5] }
+        comment: { type: [string, 'null'], examples: [Very practical feedback on my system design answers.] }
+        candidateFirstName: { type: string, description: Only the first name is shown publicly, examples: [Ahmed] }
+        createdAt: { type: string, format: date-time, examples: ['2026-11-20T18:00:00Z'] }
     Dispute:
       type: object
       required: [id, sessionId, reason, status, createdAt]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
-        reason: { type: string }
-        status: { $ref: '#/components/schemas/DisputeStatus' }
-        resolutionNote: { type: [string, 'null'] }
-        createdAt: { type: string, format: date-time }
-        resolvedAt: { type: [string, 'null'], format: date-time }
+        id: { type: string, format: uuid, examples: [d7e8f9a0-1b2c-4d3e-4f5a-6b7c8d9e0f11] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        reason: { type: string, examples: [The recruiter joined 20 minutes late and ended the session early.] }
+        status: { $ref: '#/components/schemas/DisputeStatus', examples: [open] }
+        resolutionNote: { type: [string, 'null'], examples: [null] }
+        createdAt: { type: string, format: date-time, examples: ['2026-11-20T18:10:00Z'] }
+        resolvedAt: { type: [string, 'null'], format: date-time, examples: [null] }
 
     # ── phase 2: scorecards ──
     LocalizedText:
       type: object
       required: [ar, en]
       properties:
-        ar: { type: string, minLength: 1, maxLength: 500 }
-        en: { type: string, minLength: 1, maxLength: 500 }
+        ar: { type: string, minLength: 1, maxLength: 500, examples: [ترتيب الإجابة] }
+        en: { type: string, minLength: 1, maxLength: 500, examples: [Answer structure] }
     ScorecardCriterion:
       type: object
       required: [key, label, weight, category]
       properties:
-        key: { type: string, pattern: '^[a-z][a-z0-9_]{1,39}$', examples: [answer_structure] }
+        key: { type: string, pattern: '^[a-z][a-z0-9_]{ 1,39 }$', examples: [answer_structure] }
         label: { $ref: '#/components/schemas/LocalizedText' }
         description: { $ref: '#/components/schemas/LocalizedText' }
-        weight: { type: integer, minimum: 1, maximum: 5 }
-        category: { $ref: '#/components/schemas/CriterionCategory' }
+        weight: { type: integer, minimum: 1, maximum: 5, examples: [3] }
+        category: { $ref: '#/components/schemas/CriterionCategory', examples: [communication] }
     ScorecardTemplateInput:
       type: object
       required: [name, sessionType, criteria]
       properties:
-        name: { type: string, maxLength: 100 }
+        name: { type: string, maxLength: 100, examples: [Backend mock interview] }
         specializationId:
           type: [string, 'null']
           format: uuid
           description: 'null means the generic fallback template for this session type'
+          examples: [1b2c3d4e-0000-4000-8000-000000000101]
         sessionType: { $ref: '#/components/schemas/SessionType' }
         criteria:
           type: array
@@ -1969,9 +2039,9 @@ components:
         - type: object
           required: [id, version, updatedAt]
           properties:
-            id: { type: string, format: uuid }
-            version: { type: integer, description: Incremented on every PUT }
-            updatedAt: { type: string, format: date-time }
+            id: { type: string, format: uuid, examples: [e8f9a0b1-2c3d-4e4f-5a6b-7c8d9e0f1a12] }
+            version: { type: integer, description: Incremented on every PUT, examples: [1] }
+            updatedAt: { type: string, format: date-time, examples: ['2026-11-01T12:00:00Z'] }
     ScorecardInput:
       type: object
       required: [scores, strengths, improvements, overallComment]
@@ -1986,17 +2056,17 @@ components:
               key: { type: string }
               score: { type: integer, minimum: 1, maximum: 5 }
               comment: { type: string, maxLength: 1000 }
-        strengths: { type: string, minLength: 10, maxLength: 3000 }
-        improvements: { type: string, minLength: 10, maxLength: 3000 }
-        overallComment: { type: string, minLength: 10, maxLength: 3000 }
+        strengths: { type: string, minLength: 10, maxLength: 3000, examples: [Clear communication and solid knowledge of SQL indexing.] }
+        improvements: { type: string, minLength: 10, maxLength: 3000, examples: ['Structure system design answers: requirements first, then high-level design.'] }
+        overallComment: { type: string, minLength: 10, maxLength: 3000, examples: [Ready for mid-level interviews after two more practice rounds on system design.] }
     Scorecard:
       type: object
       required: [id, sessionId, templateId, templateVersion, criteria, scores, overallScore, strengths, improvements, overallComment, submittedAt]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
-        templateId: { type: string, format: uuid }
-        templateVersion: { type: integer }
+        id: { type: string, format: uuid, examples: [f9a0b1c2-3d4e-4f5a-6b7c-8d9e0f1a2b13] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        templateId: { type: string, format: uuid, examples: [e8f9a0b1-2c3d-4e4f-5a6b-7c8d9e0f1a12] }
+        templateVersion: { type: integer, examples: [1] }
         criteria:
           type: array
           description: Snapshot of the template's criteria at submission time
@@ -2014,48 +2084,51 @@ components:
           type: number
           description: sum(score*weight)/sum(weight), rounded half away from zero to 1 decimal
           examples: [3.8]
-        strengths: { type: string }
-        improvements: { type: string }
-        overallComment: { type: string }
-        submittedAt: { type: string, format: date-time }
+        strengths: { type: string, examples: [Clear communication and solid knowledge of SQL indexing.] }
+        improvements: { type: string, examples: ['Structure system design answers: requirements first, then high-level design.'] }
+        overallComment: { type: string, examples: [Ready for mid-level interviews after two more practice rounds on system design.] }
+        submittedAt: { type: string, format: date-time, examples: ['2026-11-20T17:30:00Z'] }
 
     # ── phase 3: question bank ──
     QuestionInput:
       type: object
       required: [specializationId, roleLevel, category, text]
       properties:
-        specializationId: { type: string, format: uuid }
-        roleLevel: { $ref: '#/components/schemas/RoleLevel' }
-        category: { $ref: '#/components/schemas/QuestionCategory' }
-        text: { $ref: '#/components/schemas/LocalizedText' }
-        idealAnswerHints: { type: string, maxLength: 3000 }
+        specializationId: { type: string, format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000101] }
+        roleLevel: { $ref: '#/components/schemas/RoleLevel', examples: [mid] }
+        category: { $ref: '#/components/schemas/QuestionCategory', examples: [technical] }
+        text: { $ref: '#/components/schemas/LocalizedText', examples: [{ ar: إزاي تصمم نظام حجز مواعيد يستحمل ضغط عالي؟, en: How would you design a booking system that handles high load? }] }
+        idealAnswerHints: { type: string, maxLength: 3000, examples: ['Mentions locking or optimistic concurrency on slots, idempotency, and caching reads.'] }
         tags:
           type: array
           maxItems: 10
-          items: { type: string, pattern: '^[a-z0-9-]{2,30}$' }
+          items: { type: string, pattern: '^[a-z0-9-]{ 2,30 }$' }
+          examples: [[system-design, concurrency]]
     Question:
       type: object
       required: [id, specializationId, roleLevel, category, text, tags, status]
       properties:
-        id: { type: string, format: uuid }
-        specializationId: { type: string, format: uuid }
-        roleLevel: { $ref: '#/components/schemas/RoleLevel' }
-        category: { $ref: '#/components/schemas/QuestionCategory' }
-        text: { $ref: '#/components/schemas/LocalizedText' }
+        id: { type: string, format: uuid, examples: [a0b1c2d3-4e5f-4a6b-7c8d-9e0f1a2b3c14] }
+        specializationId: { type: string, format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000101] }
+        roleLevel: { $ref: '#/components/schemas/RoleLevel', examples: [mid] }
+        category: { $ref: '#/components/schemas/QuestionCategory', examples: [technical] }
+        text: { $ref: '#/components/schemas/LocalizedText', examples: [{ ar: إزاي تصمم نظام حجز مواعيد يستحمل ضغط عالي؟, en: How would you design a booking system that handles high load? }] }
         idealAnswerHints:
           type: [string, 'null']
           description: Omitted for candidates
+          examples: ['Mentions locking or optimistic concurrency on slots, idempotency, and caching reads.']
         tags:
           type: array
           items: { type: string }
-        status: { type: string, enum: [pending, approved, rejected] }
+          examples: [[system-design, concurrency]]
+        status: { type: string, enum: [pending, approved, rejected], examples: [approved] }
     PinnedQuestion:
       type: object
       required: [question, position, pinnedAt]
       properties:
         question: { $ref: '#/components/schemas/Question' }
-        position: { type: integer, minimum: 1 }
-        pinnedAt: { type: string, format: date-time }
+        position: { type: integer, minimum: 1, examples: [1] }
+        pinnedAt: { type: string, format: date-time, examples: ['2026-11-20T16:05:00Z'] }
 
     # ── phase 4: salary ──
     SalaryConsultationInput:
@@ -2066,23 +2139,24 @@ components:
           type: string
           format: uuid
           description: A non-cancelled salary_consultation session of this candidate. One consultation per session.
+          examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03]
         offer: { $ref: '#/components/schemas/SalaryOffer' }
         competingOffers:
           type: array
           maxItems: 3
           items: { $ref: '#/components/schemas/SalaryOffer' }
-        role: { type: string, maxLength: 100 }
-        specializationId: { type: string, format: uuid }
-        yearsOfExperience: { type: integer, minimum: 0, maximum: 50 }
-        city: { type: string, maxLength: 100 }
-        companyName: { type: string, maxLength: 100 }
-        notes: { type: string, maxLength: 2000 }
+        role: { type: string, maxLength: 100, examples: [Backend Engineer] }
+        specializationId: { type: string, format: uuid, examples: [1b2c3d4e-0000-4000-8000-000000000101] }
+        yearsOfExperience: { type: integer, minimum: 0, maximum: 50, examples: [3] }
+        city: { type: string, maxLength: 100, examples: [Cairo] }
+        companyName: { type: string, maxLength: 100, examples: [Fintech Co] }
+        notes: { type: string, maxLength: 2000, examples: [They asked me to reply by Thursday.] }
     SalaryOffer:
       type: object
       required: [baseSalary, period]
       properties:
         baseSalary: { $ref: '#/components/schemas/Money' }
-        period: { type: string, enum: [monthly, yearly] }
+        period: { type: string, enum: [monthly, yearly], examples: [monthly] }
         annualBonus: { $ref: '#/components/schemas/Money' }
         benefits:
           type: array
@@ -2108,20 +2182,21 @@ components:
           type: string
           enum: [below_market, fair, above_market]
           description: Must agree with the offer's totalCompensationYearly compared to fairRange
+          examples: [below_market]
         counterOfferSuggestion: { $ref: '#/components/schemas/Money' }
-        negotiationScript: { type: string, minLength: 50, maxLength: 5000, description: Markdown }
+        negotiationScript: { type: string, minLength: 50, maxLength: 5000, description: Markdown, examples: ["Thank them for the offer, then anchor on the market range: *Based on my research and my experience with .NET and PostgreSQL, roles like this pay 40–48k. I'd be comfortable at 45k.*"] }
     SalaryConsultation:
       type: object
       required: [id, sessionId, input, totalCompensationYearly, status, createdAt]
       properties:
-        id: { type: string, format: uuid }
-        sessionId: { type: string, format: uuid }
+        id: { type: string, format: uuid, examples: [b1c2d3e4-5f6a-4b7c-8d9e-0f1a2b3c4d15] }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
         input: { $ref: '#/components/schemas/SalaryConsultationInput' }
         totalCompensationYearly:
           allOf:
             - { $ref: '#/components/schemas/Money' }
           description: base (×12 if monthly) + annualBonus + sum(benefit yearlyValue)
-        status: { type: string, enum: [awaiting_analysis, analyzed] }
+        status: { type: string, enum: [awaiting_analysis, analyzed], examples: [analyzed] }
         analysis:
           oneOf:
             - allOf:
@@ -2131,40 +2206,77 @@ components:
                   properties:
                     analyzedAt: { type: string, format: date-time }
             - { type: 'null' }
-        createdAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time, examples: ['2026-11-20T17:00:00Z'] }
 
     # ── phase 5: archive ──
     RecordingConsent:
       type: object
       required: [sessionId, candidateConsent, recruiterConsent, willRecord]
       properties:
-        sessionId: { type: string, format: uuid }
-        candidateConsent: { type: boolean }
-        recruiterConsent: { type: boolean }
-        willRecord: { type: boolean, description: True when both have consented }
+        sessionId: { type: string, format: uuid, examples: [9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03] }
+        candidateConsent: { type: boolean, examples: [true] }
+        recruiterConsent: { type: boolean, examples: [true] }
+        willRecord: { type: boolean, description: True when both have consented, examples: [true] }
     SessionNotesInput:
       type: object
       required: [summary, tips]
       properties:
-        summary: { type: string, minLength: 20, maxLength: 5000 }
+        summary: { type: string, minLength: 20, maxLength: 5000, examples: ['Covered two system design questions and one behavioral question. Strong on databases, needs a clearer answer structure.'] }
         tips:
           type: array
           minItems: 1
           maxItems: 15
           items: { type: string, minLength: 3, maxLength: 500 }
+          examples: [[Start every design answer by listing requirements., Prepare a STAR story about a production incident.]]
     SessionArchive:
       type: object
       required: [session, transcriptStatus]
       properties:
         session: { $ref: '#/components/schemas/Session' }
-        summary: { type: [string, 'null'] }
+        summary: { type: [string, 'null'], examples: ['Covered two system design questions and one behavioral question. Strong on databases, needs a clearer answer structure.'] }
         tips:
           type: array
           items: { type: string }
-        scorecardId: { type: [string, 'null'], format: uuid }
-        transcriptStatus: { type: string, enum: [not_recorded, processing, ready, failed] }
+          examples: [[Start every design answer by listing requirements., Prepare a STAR story about a production incident.]]
+        scorecardId: { type: [string, 'null'], format: uuid, examples: [f9a0b1c2-3d4e-4f5a-6b7c-8d9e0f1a2b13] }
+        transcriptStatus: { type: string, enum: [not_recorded, processing, ready, failed], examples: [ready] }
         transcriptUrl:
           type: [string, 'null']
           format: uri
           description: Short-lived URL, present when the transcript is ready
-        notesUpdatedAt: { type: [string, 'null'], format: date-time }
+          examples: [https://files.careeredge.dev/transcripts/9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03.txt?X-Amz-Signature=mock]
+        notesUpdatedAt: { type: [string, 'null'], format: date-time, examples: ['2026-11-20T17:40:00Z'] }
+  examples:
+    Session_pending_payment:
+      summary: Just booked, waiting for payment (slot held 15 min)
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: pending_payment, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: null, actualEnd: null, holdExpiresAt: '2026-11-10T22:15:00Z', price: { amountMinor: 45000, currency: EGP }, paymentStatus: null, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_confirmed:
+      summary: Paid, upcoming
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: confirmed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: null, actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_in_progress:
+      summary: Live now
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: in_progress, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_completed:
+      summary: Finished, can be reviewed
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: completed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: '2026-11-20T16:44:00Z', holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_completed_reviewed:
+      summary: Finished, reviewed, scorecard ready, payment released
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: completed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: '2026-11-20T16:44:00Z', holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: released, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: true, hasScorecard: true, createdAt: '2026-11-10T22:00:00Z' }
+    Session_cancelled:
+      summary: Cancelled by the candidate, refunded
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: cancelled, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: null, actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: refunded, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: candidate, cancelReason: I got the job offer before the session., hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_disputed:
+      summary: Candidate opened a dispute
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: disputed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T16:20:00Z', actualEnd: '2026-11-20T16:30:00Z', holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    Session_chat_cv_review:
+      summary: Upcoming chat-only CV review
+      value: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: cv_review, mode: chat, status: confirmed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: null, actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }
+    JoinResponse_voice:
+      summary: Voice session joined
+      value: { session: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: in_progress, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }, voice: { provider: livekit, serverUrl: wss://voice.careeredge.dev, roomName: session-9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, token: eyJhbGciOiJIUzI1NiJ9.mock.livekit, expiresAt: '2026-11-20T17:00:00Z' } }
+    JoinResponse_chat:
+      summary: Chat session joined
+      value: { session: { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: cv_review, mode: chat, status: in_progress, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }, voice: null }
+    SessionPage:
+      summary: Two sessions
+      value: { page: 1, pageSize: 20, totalCount: 2, items: [{ id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: confirmed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: null, actualEnd: null, holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: held, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: true, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: false, hasScorecard: false, createdAt: '2026-11-10T22:00:00Z' }, { id: 9a4e6b1c-2d7f-4a3e-b5c8-3c4d5e6f7a03, type: mock_interview, mode: voice, status: completed, candidate: { userId: 3f8b2c1e-0d4a-4c2b-9a1e-1a2b3c4d5e01, fullName: Ahmed Hassan, avatarUrl: null }, recruiter: { userId: 7c1d9e2f-5b3a-4e8d-8f21-2b3c4d5e6f02, fullName: Sara Mostafa, avatarUrl: https://cdn.careeredge.dev/avatars/sara.jpg }, specialization: { id: 1b2c3d4e-0000-4000-8000-000000000101, slug: backend, name: Backend Development, parentId: 1b2c3d4e-0000-4000-8000-000000000100 }, scheduledStart: '2026-11-20T16:00:00Z', scheduledEnd: '2026-11-20T16:45:00Z', durationMinutes: 45, actualStart: '2026-11-20T15:57:00Z', actualEnd: '2026-11-20T16:44:00Z', holdExpiresAt: null, price: { amountMinor: 45000, currency: EGP }, paymentStatus: released, cv: { id: c5d6e7f8-1a2b-4c3d-9e4f-5a6b7c8d9e04, fileName: Ahmed_Hassan_CV.pdf, contentType: application/pdf, sizeBytes: 248311, uploadedAt: '2026-11-05T09:30:00Z' }, candidateNotes: Interview at a fintech next week. Please focus on system design., chatOpen: false, canJoinFrom: '2026-11-20T15:50:00Z', cancelledBy: null, cancelReason: null, hasReview: true, hasScorecard: true, createdAt: '2026-11-10T22:00:00Z' }] }

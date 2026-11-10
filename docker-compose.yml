@@ -1,0 +1,12 @@
+services:
+  # Mock API generated from docs/openapi.yaml. Lets the app team work before the backend exists.
+  # Run: docker compose up mock   → http://localhost:4010
+  mock:
+    image: stoplight/prism:5.12.0
+    command: mock -h 0.0.0.0 -p 4010 /api/openapi.yaml
+    volumes:
+      - ./docs:/api:ro
+    ports:
+      - "4010:4010"
+
+  # postgres, minio and the real API are added in milestone M0 (see docs/PLAN.md §6).
