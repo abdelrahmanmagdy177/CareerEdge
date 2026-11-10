@@ -1,0 +1,2170 @@
+openapi: 3.1.0
+info:
+  title: CareerEdge API
+  version: 1.0.0
+  description: |
+    Interview simulation and CV review marketplace.
+
+    **Conventions**
+    - JSON is camelCase. Enum values are snake_case strings. Timestamps are ISO-8601 UTC.
+    - Money is `{ amountMinor, currency }`, where amountMinor is an integer number of minor units (piasters).
+    - Lists take `page`/`pageSize` and return `{ items, page, pageSize, totalCount }`.
+    - Errors are `application/problem+json`. Clients switch on `code`, never on `title` or `detail`.
+    - `Accept-Language: ar|en` sets the language of localized names and error details.
+    - Operations marked `x-phase: 2..5` belong to later phases. Their shape is fixed now so the
+      app can be designed against it, but they return 404 until the phase ships.
+
+    **Realtime**: the SignalR hub at `/hubs/sessions` is described in docs/PLAN.md §5. Its
+    `Message` payload is identical to the `Message` schema here.
+
+    **Error codes**
+    | code | HTTP | meaning |
+    |---|---|---|
+    | VALIDATION_FAILED | 400 | see `errors` |
+    | INVALID_CREDENTIALS | 401 | |
+    | TOKEN_EXPIRED / TOKEN_INVALID | 401 | |
+    | FORBIDDEN_ROLE | 403 | the endpoint needs another role |
+    | RECRUITER_NOT_APPROVED | 403 | |
+    | NOT_FOUND | 404 | also returned when the caller has no access |
+    | EMAIL_TAKEN | 409 | |
+    | SLOT_UNAVAILABLE | 409 | |
+    | SLOT_OVERLAP | 409 | |
+    | CANDIDATE_TIME_CONFLICT | 409 | |
+    | INVALID_SESSION_STATE | 409 | the action is not allowed in the current status |
+    | SESSION_NOT_JOINABLE | 409 | outside the join window |
+    | CHAT_CLOSED | 409 | |
+    | ALREADY_REVIEWED | 409 | |
+    | REVIEW_WINDOW_CLOSED | 409 | |
+    | DISPUTE_WINDOW_CLOSED | 409 | |
+    | IDEMPOTENCY_KEY_REUSED | 422 | same key sent with a different body |
+    | FILE_TOO_LARGE | 413 | |
+    | UNSUPPORTED_FILE_TYPE | 415 | |
+    | RATE_LIMITED | 429 | |
+    | SCORECARD_ALREADY_SUBMITTED | 409 | phase 2 |
+    | SCORECARD_WINDOW_CLOSED | 409 | phase 2 |
+    | VERDICT_RANGE_MISMATCH | 400 | phase 4 |
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local (docker compose)
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Profiles
+  - name: Specializations
+  - name: CVs
+  - name: Recruiters
+  - name: Offerings & Availability
+  - name: Sessions
+  - name: Chat
+  - name: Payments
+  - name: Reviews & Disputes
+  - name: Admin
+  - name: Scorecards
+  - name: Question Bank
+  - name: Salary
+  - name: Archive
+
+paths:
+  # ───────────────────────── Auth ─────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      tags: [Auth]
+      summary: Register a candidate or recruiter account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Created and logged in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [Auth]
+      summary: Log in with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [Auth]
+      summary: Exchange a refresh token for a new token pair (rotation)
+      description: |
+        The old refresh token is invalidated. If a refresh token that was already used is
+        presented again, every token in that family is revoked and the server returns 401
+        TOKEN_INVALID.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [Auth]
+      summary: Revoke a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Logged out }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me:
+    get:
+      operationId: getMe
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      operationId: updateMe
+      tags: [Auth]
+      summary: Update basic account fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMeRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── Profiles ─────────────────────────
+  /me/candidate-profile:
+    get:
+      operationId: getMyCandidateProfile
+      tags: [Profiles]
+      summary: Get my candidate profile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateProfile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      operationId: upsertMyCandidateProfile
+      tags: [Profiles]
+      summary: Create or replace my candidate profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CandidateProfileInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/recruiter-profile:
+    get:
+      operationId: getMyRecruiterProfile
+      tags: [Profiles]
+      summary: Get my recruiter profile (includes verification status)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecruiterProfile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      operationId: upsertMyRecruiterProfile
+      tags: [Profiles]
+      summary: Create or replace my recruiter profile
+      description: The first submission puts the profile in `pending` verification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecruiterProfileInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecruiterProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ───────────────────────── Specializations ─────────────────────────
+  /specializations:
+    get:
+      operationId: listSpecializations
+      tags: [Specializations]
+      summary: List specializations (seeded, hierarchical)
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+      responses:
+        '200':
+          description: Flat list. Build the tree with `parentId`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Specialization' }
+
+  # ───────────────────────── CVs ─────────────────────────
+  /me/cvs:
+    get:
+      operationId: listMyCvs
+      tags: [CVs]
+      summary: List my CVs (candidate)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Cv' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: uploadCv
+      tags: [CVs]
+      summary: Upload a CV (PDF or DOCX, max 5 MB, max 5 CVs per candidate)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cv' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '415': { $ref: '#/components/responses/Problem' }
+
+  /me/cvs/{cvId}:
+    parameters:
+      - { $ref: '#/components/parameters/CvId' }
+    delete:
+      operationId: deleteCv
+      tags: [CVs]
+      summary: Delete one of my CVs (soft delete)
+      description: Recruiters of sessions that use this CV keep access for 7 days after the session ends.
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /cvs/{cvId}/download-url:
+    parameters:
+      - { $ref: '#/components/parameters/CvId' }
+    get:
+      operationId: getCvDownloadUrl
+      tags: [CVs]
+      summary: Get a short-lived download URL
+      description: Allowed for the owner, or for the recruiter of a session that has this CV attached.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DownloadUrl' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────────────────── Recruiters (public discovery) ─────────────────────────
+  /recruiters:
+    get:
+      operationId: searchRecruiters
+      tags: [Recruiters]
+      summary: Search approved recruiters
+      parameters:
+        - { name: specializationId, in: query, schema: { type: string, format: uuid } }
+        - { name: sessionType, in: query, schema: { $ref: '#/components/schemas/SessionType' } }
+        - { name: mode, in: query, schema: { $ref: '#/components/schemas/SessionMode' } }
+        - { name: maxPriceMinor, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: minRating, in: query, schema: { type: number, minimum: 1, maximum: 5 } }
+        - name: availableFrom
+          in: query
+          description: Only recruiters with an open slot in [availableFrom, availableTo]
+          schema: { type: string, format: date-time }
+        - { name: availableTo, in: query, schema: { type: string, format: date-time } }
+        - { name: q, in: query, description: Free text over name and bio, schema: { type: string, maxLength: 100 } }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [rating_desc, price_asc, price_desc, experience_desc], default: rating_desc }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/RecruiterSummary' }
+
+  /recruiters/{recruiterId}:
+    parameters:
+      - { $ref: '#/components/parameters/RecruiterId' }
+    get:
+      operationId: getRecruiter
+      tags: [Recruiters]
+      summary: Recruiter public profile with active offerings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecruiterPublic' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /recruiters/{recruiterId}/slots:
+    parameters:
+      - { $ref: '#/components/parameters/RecruiterId' }
+    get:
+      operationId: listRecruiterOpenSlots
+      tags: [Recruiters]
+      summary: Open slots of a recruiter in a date range (max 31 days)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Only `open` slots in the future
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /recruiters/{recruiterId}/reviews:
+    parameters:
+      - { $ref: '#/components/parameters/RecruiterId' }
+    get:
+      operationId: listRecruiterReviews
+      tags: [Recruiters]
+      summary: Reviews of a recruiter, newest first
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Review' }
+
+  # ───────────────────────── Offerings & Availability (recruiter) ─────────────────────────
+  /me/offerings:
+    get:
+      operationId: listMyOfferings
+      tags: [Offerings & Availability]
+      summary: My offerings (recruiter)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Offering' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createOffering
+      tags: [Offerings & Availability]
+      summary: Create an offering
+      description: Only one active offering per (sessionType, mode, durationMinutes).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OfferingInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Offering' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /me/offerings/{offeringId}:
+    parameters:
+      - { $ref: '#/components/parameters/OfferingId' }
+    patch:
+      operationId: updateOffering
+      tags: [Offerings & Availability]
+      summary: Update price or active flag
+      description: Does not affect sessions that already exist. They keep the price they were booked at.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                price: { $ref: '#/components/schemas/Money' }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Offering' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/slots:
+    get:
+      operationId: listMySlots
+      tags: [Offerings & Availability]
+      summary: My slots in a range (all statuses)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createSlots
+      tags: [Offerings & Availability]
+      summary: Create one or more slots (all or nothing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slots]
+              properties:
+                slots:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { $ref: '#/components/schemas/SlotInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /me/slots/{slotId}:
+    parameters:
+      - { name: slotId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: deleteSlot
+      tags: [Offerings & Availability]
+      summary: Delete an open slot
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The slot is held or booked (SLOT_UNAVAILABLE). Cancel the session instead.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # ───────────────────────── Sessions ─────────────────────────
+  /sessions:
+    post:
+      operationId: createSession
+      tags: [Sessions]
+      summary: Book a session (candidate)
+      description: |
+        Holds the slot for 15 minutes and returns the session in `pending_payment`.
+        Call `/sessions/{id}/checkout` next. The session starts at the slot start and
+        lasts the offering's duration.
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSessionRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listMySessions
+      tags: [Sessions]
+      summary: My sessions (as candidate or recruiter, depending on my role)
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: false
+          description: Comma-separated statuses
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/SessionStatus' }
+        - name: scope
+          in: query
+          schema: { type: string, enum: [upcoming, past, all], default: all }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: Upcoming are sorted by start ascending, past by start descending
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Session' }
+
+  /sessions/{sessionId}:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getSession
+      tags: [Sessions]
+      summary: Session details (participants and admins)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/checkout:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { $ref: '#/components/parameters/IdempotencyKey' }
+    post:
+      operationId: checkoutSession
+      tags: [Payments]
+      summary: Start payment for a pending session (candidate)
+      description: |
+        Returns a gateway URL to open in a webview or browser. The session becomes
+        `confirmed` only when the gateway webhook arrives. The app should watch
+        `SessionStatusChanged` or poll `GET /sessions/{id}`.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                returnUrl:
+                  type: string
+                  format: uri
+                  description: Deep link the gateway redirects to after payment
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckoutResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/payment:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getSessionPayment
+      tags: [Payments]
+      summary: Payment state of a session (participants and admins)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/cancellation-quote:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getCancellationQuote
+      tags: [Sessions]
+      summary: Preview what cancelling now would refund
+      description: Lets the app show "you will get X back" before the user confirms.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CancellationQuote' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: cancelSession
+      tags: [Sessions]
+      summary: Cancel a session (candidate or recruiter, before it starts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200':
+          description: Cancelled. The refund (if any) is reflected in `payment`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/join:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: joinSession
+      tags: [Sessions]
+      summary: Join a session (participants)
+      description: |
+        Records attendance. The first join moves the session `confirmed → in_progress`.
+        For `voice` sessions it also returns a voice room token. Calling it again
+        returns a fresh token. Allowed from scheduledStart - 10 min until scheduledEnd.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JoinResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/end:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: endSession
+      tags: [Sessions]
+      summary: End an in-progress session (recruiter)
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───────────────────────── Chat ─────────────────────────
+  /sessions/{sessionId}/messages:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: listMessages
+      tags: [Chat]
+      summary: Chat history, newest first (cursor-based)
+      parameters:
+        - name: before
+          in: query
+          description: Return messages older than this message id
+          schema: { type: string, format: uuid }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, hasMore]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Message' }
+                  hasMore: { type: boolean }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: sendMessage
+      tags: [Chat]
+      summary: Send a message (REST fallback to the hub's SendMessage)
+      description: Idempotent on `clientMessageId`. A duplicate returns 200 with the original message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '200':
+          description: Duplicate clientMessageId. Returns the existing message.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ───────────────────────── Reviews & Disputes ─────────────────────────
+  /sessions/{sessionId}/review:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: createReview
+      tags: [Reviews & Disputes]
+      summary: Review a completed session (candidate, once, within 14 days)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/dispute:
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: openDispute
+      tags: [Reviews & Disputes]
+      summary: Open a dispute on a completed session (candidate, within 24h of the end)
+      description: Moves the session to `disputed` and freezes the payment release.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 20, maxLength: 2000 }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dispute' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───────────────────────── Payment webhook ─────────────────────────
+  /payments/webhooks/{provider}:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema: { type: string, enum: [paymob, fake] }
+    post:
+      operationId: paymentWebhook
+      tags: [Payments]
+      summary: Gateway callback (server to server, not called by apps)
+      description: The HMAC is verified first. Idempotent on the gateway transaction reference.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Accepted }
+        '401': { description: Bad signature }
+
+  # ───────────────────────── Admin ─────────────────────────
+  /admin/recruiters:
+    get:
+      operationId: adminListRecruiters
+      tags: [Admin]
+      summary: List recruiters by verification status
+      parameters:
+        - name: verificationStatus
+          in: query
+          schema: { $ref: '#/components/schemas/VerificationStatus' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/RecruiterProfile' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/recruiters/{recruiterId}/verification:
+    parameters:
+      - { $ref: '#/components/parameters/RecruiterId' }
+    post:
+      operationId: adminVerifyRecruiter
+      tags: [Admin]
+      summary: Approve or reject a recruiter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approved, rejected] }
+                note: { type: string, maxLength: 1000, description: Required when rejected }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecruiterProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/disputes:
+    get:
+      operationId: adminListDisputes
+      tags: [Admin]
+      summary: List disputes
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/DisputeStatus' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Dispute' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/disputes/{disputeId}/resolve:
+    parameters:
+      - { name: disputeId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: adminResolveDispute
+      tags: [Admin]
+      summary: Resolve a dispute
+      description: |
+        `refund`: the payment is refunded in full and the session becomes `refunded`.
+        `release`: the session goes back to `completed` and the payment is released immediately.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution, note]
+              properties:
+                resolution: { type: string, enum: [refund, release] }
+                note: { type: string, minLength: 3, maxLength: 2000 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dispute' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───────────────────────── Phase 2: Scorecards ─────────────────────────
+  /admin/scorecard-templates:
+    x-phase: 2
+    get:
+      operationId: adminListScorecardTemplates
+      tags: [Scorecards]
+      summary: List scorecard templates
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ScorecardTemplate' }
+    post:
+      operationId: adminCreateScorecardTemplate
+      tags: [Scorecards]
+      summary: Create a template for a specialization and session type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScorecardTemplateInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScorecardTemplate' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/scorecard-templates/{templateId}:
+    x-phase: 2
+    parameters:
+      - { name: templateId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: adminReplaceScorecardTemplate
+      tags: [Scorecards]
+      summary: Replace a template (does not affect scorecards already submitted)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScorecardTemplateInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScorecardTemplate' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/scorecard-template:
+    x-phase: 2
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getSessionScorecardTemplate
+      tags: [Scorecards]
+      summary: The template the recruiter must fill for this session
+      description: |
+        Matched by the session's specialization and type, falling back to the parent
+        specialization, then to the generic template.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScorecardTemplate' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/scorecard:
+    x-phase: 2
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getScorecard
+      tags: [Scorecards]
+      summary: Get the submitted scorecard
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scorecard' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: submitScorecard
+      tags: [Scorecards]
+      summary: Submit the scorecard (session recruiter, once, within 72h of completion)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScorecardInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scorecard' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/scorecard/pdf:
+    x-phase: 2
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { $ref: '#/components/parameters/AcceptLanguage' }
+    get:
+      operationId: getScorecardPdf
+      tags: [Scorecards]
+      summary: Scorecard report as PDF
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────────────────── Phase 3: Question Bank ─────────────────────────
+  /questions:
+    x-phase: 3
+    get:
+      operationId: searchQuestions
+      tags: [Question Bank]
+      summary: Search approved questions
+      description: '`idealAnswerHints` is returned only to recruiters and admins.'
+      parameters:
+        - { name: specializationId, in: query, schema: { type: string, format: uuid } }
+        - { name: roleLevel, in: query, schema: { $ref: '#/components/schemas/RoleLevel' } }
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/QuestionCategory' } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: q, in: query, description: Full-text search, schema: { type: string, maxLength: 100 } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Question' }
+    post:
+      operationId: proposeQuestion
+      tags: [Question Bank]
+      summary: Propose a question (approved recruiter). It starts as `pending`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuestionInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Question' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/questions/{questionId}/review:
+    x-phase: 3
+    parameters:
+      - { $ref: '#/components/parameters/QuestionId' }
+    post:
+      operationId: adminReviewQuestion
+      tags: [Question Bank]
+      summary: Approve or reject a proposed question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approved, rejected] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Question' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/questions:
+    x-phase: 3
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: listPinnedQuestions
+      tags: [Question Bank]
+      summary: Questions pinned to this session, in order
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PinnedQuestion' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: pinQuestion
+      tags: [Question Bank]
+      summary: Pin a question to the session (session recruiter, while confirmed or in progress)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionId]
+              properties:
+                questionId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Pinned. It is appended at the end of the list.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PinnedQuestion' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/questions/{questionId}:
+    x-phase: 3
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+      - { $ref: '#/components/parameters/QuestionId' }
+    delete:
+      operationId: unpinQuestion
+      tags: [Question Bank]
+      summary: Unpin a question
+      responses:
+        '204': { description: Unpinned }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────────────────── Phase 4: Salary ─────────────────────────
+  /salary-consultations:
+    x-phase: 4
+    post:
+      operationId: createSalaryConsultation
+      tags: [Salary]
+      summary: Submit an offer for analysis (candidate, linked to a salary_consultation session)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaryConsultationInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryConsultation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /salary-consultations/{consultationId}:
+    x-phase: 4
+    parameters:
+      - { $ref: '#/components/parameters/ConsultationId' }
+    get:
+      operationId: getSalaryConsultation
+      tags: [Salary]
+      summary: Get a consultation, with its analysis once submitted
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryConsultation' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /salary-consultations/{consultationId}/analysis:
+    x-phase: 4
+    parameters:
+      - { $ref: '#/components/parameters/ConsultationId' }
+    put:
+      operationId: submitSalaryAnalysis
+      tags: [Salary]
+      summary: Submit or update the analysis (recruiter of the linked session)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SalaryAnalysisInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalaryConsultation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────────────────── Phase 5: Archive ─────────────────────────
+  /sessions/{sessionId}/recording-consent:
+    x-phase: 5
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    post:
+      operationId: setRecordingConsent
+      tags: [Archive]
+      summary: Give or withdraw my consent to recording (before the session starts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consent]
+              properties:
+                consent: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecordingConsent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/notes:
+    x-phase: 5
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    put:
+      operationId: upsertSessionNotes
+      tags: [Archive]
+      summary: Write the session summary and tips (session recruiter, after completion)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionNotesInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionArchive' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/archive:
+    x-phase: 5
+    parameters:
+      - { $ref: '#/components/parameters/SessionId' }
+    get:
+      operationId: getSessionArchive
+      tags: [Archive]
+      summary: Archive entry of one session
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionArchive' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/archive:
+    x-phase: 5
+    get:
+      operationId: listMyArchive
+      tags: [Archive]
+      summary: My archive (candidate), newest first
+      parameters:
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/SessionType' } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageMeta' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/SessionArchive' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      schema: { type: string, enum: [ar, en], default: en }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated UUID. It is stored for 24h. Replaying it returns the original response.
+      schema: { type: string, format: uuid }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RecruiterId:
+      name: recruiterId
+      in: path
+      required: true
+      description: The recruiter's user id
+      schema: { type: string, format: uuid }
+    CvId:
+      name: cvId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OfferingId:
+      name: offeringId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    QuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ConsultationId:
+      name: consultationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: Error
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    BadRequest:
+      description: Validation failed
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://careeredge.dev/errors/validation-failed
+            title: Validation failed
+            status: 400
+            code: VALIDATION_FAILED
+            errors:
+              email: [Email is not valid.]
+    Unauthorized:
+      description: Missing, invalid or expired token, or bad credentials
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Wrong role (FORBIDDEN_ROLE) or recruiter not approved (RECRUITER_NOT_APPROVED)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Does not exist, or the caller has no access to it
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Business rule violation. See `code`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyRequests:
+      description: Rate limited. See the `Retry-After` header.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    # ── shared ──
+    Problem:
+      type: object
+      required: [title, status, code]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string, description: 'Localized, human readable' }
+        code: { type: string, description: Stable machine-readable error code (see the table in info.description) }
+        traceId: { type: string }
+        errors:
+          type: object
+          description: Field name to messages (400 only)
+          additionalProperties:
+            type: array
+            items: { type: string }
+    Money:
+      type: object
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: { type: integer, format: int64, minimum: 0, examples: [45000] }
+        currency: { type: string, pattern: '^[A-Z]{3}$', examples: [EGP] }
+    PageMeta:
+      type: object
+      required: [page, pageSize, totalCount]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+    DownloadUrl:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+
+    # ── enums ──
+    Role: { type: string, enum: [candidate, recruiter, admin] }
+    VerificationStatus: { type: string, enum: [pending, approved, rejected] }
+    SessionType: { type: string, enum: [mock_interview, cv_review, salary_consultation] }
+    SessionMode: { type: string, enum: [chat, voice] }
+    SessionStatus:
+      type: string
+      enum: [pending_payment, confirmed, in_progress, completed, disputed, cancelled, no_show, refunded]
+    PaymentStatus:
+      type: string
+      enum: [pending, held, released, refunded, partially_refunded, failed]
+    SlotStatus: { type: string, enum: [open, held, booked] }
+    DisputeStatus: { type: string, enum: [open, resolved_refund, resolved_release] }
+    RoleLevel: { type: string, enum: [intern, junior, mid, senior, lead] }
+    QuestionCategory: { type: string, enum: [behavioral, technical, situational, hr] }
+    CriterionCategory: { type: string, enum: [communication, technical, cv_structure, other] }
+
+    # ── auth ──
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: At least one letter and one digit
+        fullName: { type: string, minLength: 2, maxLength: 100 }
+        role:
+          type: string
+          enum: [candidate, recruiter]
+          description: Admins are created by seed or CLI only
+        phone: { type: string, pattern: '^\+[1-9]\d{7,14}$' }
+        locale: { type: string, enum: [ar, en], default: ar }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    AuthResponse:
+      type: object
+      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user]
+      properties:
+        accessToken: { type: string }
+        accessTokenExpiresAt: { type: string, format: date-time }
+        refreshToken: { type: string }
+        refreshTokenExpiresAt: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/User' }
+    User:
+      type: object
+      required: [id, email, fullName, role, locale, createdAt, hasProfile]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        phone: { type: [string, 'null'] }
+        locale: { type: string, enum: [ar, en] }
+        hasProfile:
+          type: boolean
+          description: False means the app should send the user to onboarding
+        createdAt: { type: string, format: date-time }
+    UpdateMeRequest:
+      type: object
+      minProperties: 1
+      properties:
+        fullName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: [string, 'null'], pattern: '^\+[1-9]\d{7,14}$' }
+        locale: { type: string, enum: [ar, en] }
+
+    # ── profiles ──
+    Specialization:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string, examples: [backend] }
+        name: { type: string, description: Localized via Accept-Language }
+        parentId: { type: [string, 'null'], format: uuid }
+    CandidateProfileInput:
+      type: object
+      required: [specializationId, targetRole, yearsOfExperience]
+      properties:
+        headline: { type: string, maxLength: 150 }
+        specializationId: { type: string, format: uuid }
+        targetRole: { type: string, maxLength: 100, examples: [Senior Backend Engineer] }
+        targetLevel: { $ref: '#/components/schemas/RoleLevel' }
+        yearsOfExperience: { type: integer, minimum: 0, maximum: 50 }
+    CandidateProfile:
+      allOf:
+        - { $ref: '#/components/schemas/CandidateProfileInput' }
+        - type: object
+          required: [userId, specialization]
+          properties:
+            userId: { type: string, format: uuid }
+            specialization: { $ref: '#/components/schemas/Specialization' }
+    RecruiterProfileInput:
+      type: object
+      required: [bio, yearsOfExperience, specializationIds, timezone]
+      properties:
+        bio: { type: string, minLength: 50, maxLength: 2000 }
+        yearsOfExperience: { type: integer, minimum: 1, maximum: 50 }
+        currentTitle: { type: string, maxLength: 100 }
+        linkedinUrl: { type: string, format: uri }
+        specializationIds:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        languages:
+          type: array
+          items: { type: string, enum: [ar, en] }
+          default: [ar]
+        timezone: { type: string, description: IANA timezone, examples: [Africa/Cairo] }
+    RecruiterProfile:
+      type: object
+      required: [userId, fullName, bio, yearsOfExperience, specializations, timezone, verificationStatus, ratingAvg, ratingCount, cancellationCount]
+      properties:
+        userId: { type: string, format: uuid }
+        fullName: { type: string }
+        avatarUrl: { type: [string, 'null'], format: uri }
+        bio: { type: string }
+        yearsOfExperience: { type: integer }
+        currentTitle: { type: [string, 'null'] }
+        linkedinUrl: { type: [string, 'null'], format: uri }
+        specializations:
+          type: array
+          items: { $ref: '#/components/schemas/Specialization' }
+        languages:
+          type: array
+          items: { type: string, enum: [ar, en] }
+        timezone: { type: string }
+        verificationStatus: { $ref: '#/components/schemas/VerificationStatus' }
+        verificationNote: { type: [string, 'null'] }
+        ratingAvg: { type: number, description: '0 when there are no reviews' }
+        ratingCount: { type: integer }
+        cancellationCount: { type: integer }
+    RecruiterSummary:
+      type: object
+      description: Search result card
+      required: [userId, fullName, yearsOfExperience, specializations, ratingAvg, ratingCount]
+      properties:
+        userId: { type: string, format: uuid }
+        fullName: { type: string }
+        avatarUrl: { type: [string, 'null'], format: uri }
+        currentTitle: { type: [string, 'null'] }
+        yearsOfExperience: { type: integer }
+        specializations:
+          type: array
+          items: { $ref: '#/components/schemas/Specialization' }
+        ratingAvg: { type: number }
+        ratingCount: { type: integer }
+        startingPrice:
+          description: Lowest active offering price matching the filters
+          oneOf:
+            - { $ref: '#/components/schemas/Money' }
+            - { type: 'null' }
+        nextAvailableAt: { type: [string, 'null'], format: date-time }
+    RecruiterPublic:
+      allOf:
+        - { $ref: '#/components/schemas/RecruiterSummary' }
+        - type: object
+          required: [bio, languages, offerings]
+          properties:
+            bio: { type: string }
+            languages:
+              type: array
+              items: { type: string }
+            linkedinUrl: { type: [string, 'null'], format: uri }
+            offerings:
+              type: array
+              description: Active offerings only
+              items: { $ref: '#/components/schemas/Offering' }
+
+    # ── CVs ──
+    Cv:
+      type: object
+      required: [id, fileName, contentType, sizeBytes, uploadedAt]
+      properties:
+        id: { type: string, format: uuid }
+        fileName: { type: string }
+        contentType:
+          type: string
+          enum: [application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document]
+        sizeBytes: { type: integer }
+        uploadedAt: { type: string, format: date-time }
+
+    # ── offerings & slots ──
+    OfferingInput:
+      type: object
+      required: [sessionType, mode, durationMinutes, price]
+      properties:
+        sessionType: { $ref: '#/components/schemas/SessionType' }
+        mode: { $ref: '#/components/schemas/SessionMode' }
+        durationMinutes: { type: integer, enum: [30, 45, 60] }
+        price:
+          allOf:
+            - { $ref: '#/components/schemas/Money' }
+          description: amountMinor between 5000 and 1000000 (50–10,000 EGP)
+    Offering:
+      allOf:
+        - { $ref: '#/components/schemas/OfferingInput' }
+        - type: object
+          required: [id, recruiterId, isActive]
+          properties:
+            id: { type: string, format: uuid }
+            recruiterId: { type: string, format: uuid }
+            isActive: { type: boolean }
+    SlotInput:
+      type: object
+      required: [startsAt, endsAt]
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt:
+          type: string
+          format: date-time
+          description: At least 30 min after startsAt, at most 4 h
+    Slot:
+      type: object
+      required: [id, recruiterId, startsAt, endsAt, status]
+      properties:
+        id: { type: string, format: uuid }
+        recruiterId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/SlotStatus' }
+
+    # ── sessions ──
+    CreateSessionRequest:
+      type: object
+      required: [offeringId, slotId]
+      properties:
+        offeringId: { type: string, format: uuid }
+        slotId:
+          type: string
+          format: uuid
+          description: Must belong to the offering's recruiter, be open, and be long enough for the offering
+        cvId:
+          type: string
+          format: uuid
+          description: Required when the offering's sessionType is cv_review
+        candidateNotes:
+          type: string
+          maxLength: 1000
+          description: What the candidate wants to focus on, e.g. the job description
+    ParticipantSummary:
+      type: object
+      required: [userId, fullName]
+      properties:
+        userId: { type: string, format: uuid }
+        fullName: { type: string }
+        avatarUrl: { type: [string, 'null'], format: uri }
+    Session:
+      type: object
+      required: [id, type, mode, status, candidate, recruiter, scheduledStart, scheduledEnd, durationMinutes, price, chatOpen, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/SessionType' }
+        mode: { $ref: '#/components/schemas/SessionMode' }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        candidate: { $ref: '#/components/schemas/ParticipantSummary' }
+        recruiter: { $ref: '#/components/schemas/ParticipantSummary' }
+        specialization:
+          oneOf:
+            - { $ref: '#/components/schemas/Specialization' }
+            - { type: 'null' }
+          description: Taken from the candidate profile when the session was booked
+        scheduledStart: { type: string, format: date-time }
+        scheduledEnd: { type: string, format: date-time }
+        durationMinutes: { type: integer }
+        actualStart: { type: [string, 'null'], format: date-time }
+        actualEnd: { type: [string, 'null'], format: date-time }
+        holdExpiresAt:
+          type: [string, 'null']
+          format: date-time
+          description: Set only while pending_payment
+        price: { $ref: '#/components/schemas/Money' }
+        paymentStatus:
+          oneOf:
+            - { $ref: '#/components/schemas/PaymentStatus' }
+            - { type: 'null' }
+        cv:
+          oneOf:
+            - { $ref: '#/components/schemas/Cv' }
+            - { type: 'null' }
+        candidateNotes: { type: [string, 'null'] }
+        chatOpen: { type: boolean, description: True if messages can be sent now }
+        canJoinFrom: { type: string, format: date-time, description: scheduledStart - 10 min }
+        cancelledBy:
+          oneOf:
+            - { type: string, enum: [candidate, recruiter, system] }
+            - { type: 'null' }
+        cancelReason: { type: [string, 'null'] }
+        hasReview: { type: boolean }
+        hasScorecard: { type: boolean, description: Phase 2. Always false before then. }
+        createdAt: { type: string, format: date-time }
+    CheckoutResponse:
+      type: object
+      required: [paymentId, paymentUrl, expiresAt]
+      properties:
+        paymentId: { type: string, format: uuid }
+        paymentUrl: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time, description: Equal to the session's holdExpiresAt }
+    Payment:
+      type: object
+      required: [id, sessionId, amount, status, refunded]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        refunded: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        heldAt: { type: [string, 'null'], format: date-time }
+        releaseScheduledAt: { type: [string, 'null'], format: date-time }
+        releasedAt: { type: [string, 'null'], format: date-time }
+        refundedAt: { type: [string, 'null'], format: date-time }
+    CancellationQuote:
+      type: object
+      required: [refundPercent, refundAmount, policy]
+      properties:
+        refundPercent: { type: integer, enum: [0, 50, 100] }
+        refundAmount: { $ref: '#/components/schemas/Money' }
+        policy:
+          type: string
+          enum: [candidate_early, candidate_late, recruiter, unpaid]
+          description: '`unpaid` means pending_payment, so there is nothing to refund'
+    JoinResponse:
+      type: object
+      required: [session]
+      properties:
+        session: { $ref: '#/components/schemas/Session' }
+        voice:
+          description: Present only for voice sessions
+          oneOf:
+            - type: object
+              required: [provider, serverUrl, roomName, token, expiresAt]
+              properties:
+                provider: { type: string, enum: [livekit] }
+                serverUrl: { type: string, format: uri }
+                roomName: { type: string }
+                token: { type: string }
+                expiresAt: { type: string, format: date-time }
+            - { type: 'null' }
+
+    # ── chat ──
+    SendMessageRequest:
+      type: object
+      required: [clientMessageId, body]
+      properties:
+        clientMessageId: { type: string, format: uuid }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+    Message:
+      type: object
+      required: [id, sessionId, senderId, clientMessageId, body, sentAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        senderId: { type: string, format: uuid }
+        clientMessageId: { type: string, format: uuid }
+        body: { type: string }
+        sentAt: { type: string, format: date-time }
+
+    # ── reviews & disputes ──
+    ReviewInput:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, maxLength: 1000 }
+    Review:
+      type: object
+      required: [id, sessionId, rating, candidateFirstName, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        rating: { type: integer }
+        comment: { type: [string, 'null'] }
+        candidateFirstName: { type: string, description: Only the first name is shown publicly }
+        createdAt: { type: string, format: date-time }
+    Dispute:
+      type: object
+      required: [id, sessionId, reason, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        reason: { type: string }
+        status: { $ref: '#/components/schemas/DisputeStatus' }
+        resolutionNote: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+
+    # ── phase 2: scorecards ──
+    LocalizedText:
+      type: object
+      required: [ar, en]
+      properties:
+        ar: { type: string, minLength: 1, maxLength: 500 }
+        en: { type: string, minLength: 1, maxLength: 500 }
+    ScorecardCriterion:
+      type: object
+      required: [key, label, weight, category]
+      properties:
+        key: { type: string, pattern: '^[a-z][a-z0-9_]{1,39}$', examples: [answer_structure] }
+        label: { $ref: '#/components/schemas/LocalizedText' }
+        description: { $ref: '#/components/schemas/LocalizedText' }
+        weight: { type: integer, minimum: 1, maximum: 5 }
+        category: { $ref: '#/components/schemas/CriterionCategory' }
+    ScorecardTemplateInput:
+      type: object
+      required: [name, sessionType, criteria]
+      properties:
+        name: { type: string, maxLength: 100 }
+        specializationId:
+          type: [string, 'null']
+          format: uuid
+          description: 'null means the generic fallback template for this session type'
+        sessionType: { $ref: '#/components/schemas/SessionType' }
+        criteria:
+          type: array
+          minItems: 3
+          maxItems: 10
+          description: Keys must be unique
+          items: { $ref: '#/components/schemas/ScorecardCriterion' }
+    ScorecardTemplate:
+      allOf:
+        - { $ref: '#/components/schemas/ScorecardTemplateInput' }
+        - type: object
+          required: [id, version, updatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, description: Incremented on every PUT }
+            updatedAt: { type: string, format: date-time }
+    ScorecardInput:
+      type: object
+      required: [scores, strengths, improvements, overallComment]
+      properties:
+        scores:
+          type: array
+          description: Exactly one entry per criterion in the session's template
+          items:
+            type: object
+            required: [key, score]
+            properties:
+              key: { type: string }
+              score: { type: integer, minimum: 1, maximum: 5 }
+              comment: { type: string, maxLength: 1000 }
+        strengths: { type: string, minLength: 10, maxLength: 3000 }
+        improvements: { type: string, minLength: 10, maxLength: 3000 }
+        overallComment: { type: string, minLength: 10, maxLength: 3000 }
+    Scorecard:
+      type: object
+      required: [id, sessionId, templateId, templateVersion, criteria, scores, overallScore, strengths, improvements, overallComment, submittedAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        templateId: { type: string, format: uuid }
+        templateVersion: { type: integer }
+        criteria:
+          type: array
+          description: Snapshot of the template's criteria at submission time
+          items: { $ref: '#/components/schemas/ScorecardCriterion' }
+        scores:
+          type: array
+          items:
+            type: object
+            required: [key, score]
+            properties:
+              key: { type: string }
+              score: { type: integer }
+              comment: { type: [string, 'null'] }
+        overallScore:
+          type: number
+          description: sum(score*weight)/sum(weight), rounded half away from zero to 1 decimal
+          examples: [3.8]
+        strengths: { type: string }
+        improvements: { type: string }
+        overallComment: { type: string }
+        submittedAt: { type: string, format: date-time }
+
+    # ── phase 3: question bank ──
+    QuestionInput:
+      type: object
+      required: [specializationId, roleLevel, category, text]
+      properties:
+        specializationId: { type: string, format: uuid }
+        roleLevel: { $ref: '#/components/schemas/RoleLevel' }
+        category: { $ref: '#/components/schemas/QuestionCategory' }
+        text: { $ref: '#/components/schemas/LocalizedText' }
+        idealAnswerHints: { type: string, maxLength: 3000 }
+        tags:
+          type: array
+          maxItems: 10
+          items: { type: string, pattern: '^[a-z0-9-]{2,30}$' }
+    Question:
+      type: object
+      required: [id, specializationId, roleLevel, category, text, tags, status]
+      properties:
+        id: { type: string, format: uuid }
+        specializationId: { type: string, format: uuid }
+        roleLevel: { $ref: '#/components/schemas/RoleLevel' }
+        category: { $ref: '#/components/schemas/QuestionCategory' }
+        text: { $ref: '#/components/schemas/LocalizedText' }
+        idealAnswerHints:
+          type: [string, 'null']
+          description: Omitted for candidates
+        tags:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+    PinnedQuestion:
+      type: object
+      required: [question, position, pinnedAt]
+      properties:
+        question: { $ref: '#/components/schemas/Question' }
+        position: { type: integer, minimum: 1 }
+        pinnedAt: { type: string, format: date-time }
+
+    # ── phase 4: salary ──
+    SalaryConsultationInput:
+      type: object
+      required: [sessionId, offer, role, specializationId, yearsOfExperience, city]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: A non-cancelled salary_consultation session of this candidate. One consultation per session.
+        offer: { $ref: '#/components/schemas/SalaryOffer' }
+        competingOffers:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/SalaryOffer' }
+        role: { type: string, maxLength: 100 }
+        specializationId: { type: string, format: uuid }
+        yearsOfExperience: { type: integer, minimum: 0, maximum: 50 }
+        city: { type: string, maxLength: 100 }
+        companyName: { type: string, maxLength: 100 }
+        notes: { type: string, maxLength: 2000 }
+    SalaryOffer:
+      type: object
+      required: [baseSalary, period]
+      properties:
+        baseSalary: { $ref: '#/components/schemas/Money' }
+        period: { type: string, enum: [monthly, yearly] }
+        annualBonus: { $ref: '#/components/schemas/Money' }
+        benefits:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, maxLength: 100, examples: [Medical insurance] }
+              yearlyValue: { $ref: '#/components/schemas/Money' }
+    SalaryAnalysisInput:
+      type: object
+      required: [fairRange, verdict, negotiationScript]
+      properties:
+        fairRange:
+          type: object
+          required: [min, max]
+          description: Yearly total compensation. min ≤ max, same currency as the offer.
+          properties:
+            min: { $ref: '#/components/schemas/Money' }
+            max: { $ref: '#/components/schemas/Money' }
+        verdict:
+          type: string
+          enum: [below_market, fair, above_market]
+          description: Must agree with the offer's totalCompensationYearly compared to fairRange
+        counterOfferSuggestion: { $ref: '#/components/schemas/Money' }
+        negotiationScript: { type: string, minLength: 50, maxLength: 5000, description: Markdown }
+    SalaryConsultation:
+      type: object
+      required: [id, sessionId, input, totalCompensationYearly, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        input: { $ref: '#/components/schemas/SalaryConsultationInput' }
+        totalCompensationYearly:
+          allOf:
+            - { $ref: '#/components/schemas/Money' }
+          description: base (×12 if monthly) + annualBonus + sum(benefit yearlyValue)
+        status: { type: string, enum: [awaiting_analysis, analyzed] }
+        analysis:
+          oneOf:
+            - allOf:
+                - { $ref: '#/components/schemas/SalaryAnalysisInput' }
+                - type: object
+                  required: [analyzedAt]
+                  properties:
+                    analyzedAt: { type: string, format: date-time }
+            - { type: 'null' }
+        createdAt: { type: string, format: date-time }
+
+    # ── phase 5: archive ──
+    RecordingConsent:
+      type: object
+      required: [sessionId, candidateConsent, recruiterConsent, willRecord]
+      properties:
+        sessionId: { type: string, format: uuid }
+        candidateConsent: { type: boolean }
+        recruiterConsent: { type: boolean }
+        willRecord: { type: boolean, description: True when both have consented }
+    SessionNotesInput:
+      type: object
+      required: [summary, tips]
+      properties:
+        summary: { type: string, minLength: 20, maxLength: 5000 }
+        tips:
+          type: array
+          minItems: 1
+          maxItems: 15
+          items: { type: string, minLength: 3, maxLength: 500 }
+    SessionArchive:
+      type: object
+      required: [session, transcriptStatus]
+      properties:
+        session: { $ref: '#/components/schemas/Session' }
+        summary: { type: [string, 'null'] }
+        tips:
+          type: array
+          items: { type: string }
+        scorecardId: { type: [string, 'null'], format: uuid }
+        transcriptStatus: { type: string, enum: [not_recorded, processing, ready, failed] }
+        transcriptUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived URL, present when the transcript is ready
+        notesUpdatedAt: { type: [string, 'null'], format: date-time }

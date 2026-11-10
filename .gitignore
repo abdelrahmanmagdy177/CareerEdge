@@ -1,0 +1,34 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+.idea/
+*.DotSettings.user
+
+# Test results / coverage
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# Local config & secrets — never commit real keys
+appsettings.*.local.json
+*.env
+.env*
+!.env.example
+secrets.json
+
+# Docker volumes
+.data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# Comprende personal notes
+.learning/me.local.md
