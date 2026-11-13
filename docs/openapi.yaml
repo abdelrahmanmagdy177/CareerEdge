@@ -29,6 +29,7 @@ info:
     | NOT_FOUND | 404 | also returned when the caller has no access |
     | EMAIL_TAKEN | 409 | |
     | CV_LIMIT_REACHED | 409 | the candidate already has 5 CVs |
+    | OFFERING_EXISTS | 409 | an active offering with the same type, mode and duration exists |
     | SLOT_UNAVAILABLE | 409 | |
     | SLOT_OVERLAP | 409 | |
     | CANDIDATE_TIME_CONFLICT | 409 | |
@@ -346,8 +347,16 @@ paths:
       operationId: searchRecruiters
       tags: [Recruiters]
       summary: Search approved recruiters
+      description: |
+        Lists recruiters that are approved and have at least one active offering.
+        All filters are optional and combine with AND. `sessionType`, `mode` and `maxPriceMinor`
+        must be met by the same offering, and `startingPrice` is the cheapest offering that
+        meets them.
       parameters:
-        - { name: specializationId, in: query, schema: { type: string, format: uuid } }
+        - name: specializationId
+          in: query
+          description: A parent specialization also matches recruiters in any of its children.
+          schema: { type: string, format: uuid }
         - { name: sessionType, in: query, schema: { $ref: '#/components/schemas/SessionType' } }
         - { name: mode, in: query, schema: { $ref: '#/components/schemas/SessionMode' } }
         - { name: maxPriceMinor, in: query, schema: { type: integer, minimum: 0 } }
@@ -458,7 +467,11 @@ paths:
       operationId: createOffering
       tags: [Offerings & Availability]
       summary: Create an offering
-      description: Only one active offering per (sessionType, mode, durationMinutes).
+      description: |
+        Needs an approved recruiter profile (`403 RECRUITER_NOT_APPROVED` otherwise).
+        Only one active offering per (sessionType, mode, durationMinutes): a second one answers
+        `409 OFFERING_EXISTS`. The currency must be EGP. There is no delete: switch an offering
+        off with `PATCH isActive: false`.
       requestBody:
         required: true
         content:
@@ -1555,6 +1568,8 @@ components:
               value: { type: https://careeredge.dev/errors/email-taken, title: Email is already registered, status: 409, code: EMAIL_TAKEN, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
             CV_LIMIT_REACHED:
               value: { type: https://careeredge.dev/errors/cv-limit-reached, title: Delete a CV before uploading another one, status: 409, code: CV_LIMIT_REACHED }
+            OFFERING_EXISTS:
+              value: { type: https://careeredge.dev/errors/offering-exists, title: 'You already have an active offering with this type, mode and duration', status: 409, code: OFFERING_EXISTS }
     TooManyRequests:
       description: Rate limited. See the `Retry-After` header.
       headers:

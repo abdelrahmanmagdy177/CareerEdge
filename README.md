@@ -71,6 +71,7 @@ Code style is Laravel Pint: `vendor/bin/pint`.
 ```
 app/Modules/Identity/      users, access tokens (Sanctum), rotating refresh tokens, role check
 app/Modules/Profiles/      candidate and recruiter profiles, specializations, CV files
+app/Modules/Scheduling/    offerings (services and prices), time slots, recruiter search
 app/Support/Http/          the contract's error format (problem+json) and date format
 routes/api.php             lists each module's routes; everything is under /api/v1
 tests/Feature/<Module>/    HTTP tests per module
@@ -88,5 +89,6 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 | M0 Skeleton, error format, health check, CI | Done |
 | M1 Identity: register, login, refresh, logout, me | Done |
 | M2 Profiles, specializations, CV upload | Done |
-| M3 Offerings, availability, recruiter search | Next |
-| M4–M8 | Not started |
+| M3 Offerings, availability, recruiter search | Done |
+| M4 Booking and payment | Next |
+| M5–M8 | Not started |

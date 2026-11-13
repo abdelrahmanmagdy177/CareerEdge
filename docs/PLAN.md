@@ -68,6 +68,12 @@ Rules:
 - Every module has its own service provider, routes file and migrations folder, so adding
   a module does not edit another module. The only shared edits are one line in
   `bootstrap/providers.php` and one in `routes/api.php`.
+- One exception to "never read another module's tables": a **read-only listing query** for a
+  search screen. Filtering, sorting and paging recruiters by profile, name, price and free
+  slots has to be one SQL query. Such a query lives in one class (`RecruiterSearch`), uses
+  the query builder and not the other modules' models, and never writes.
+- Rules that must hold even when two requests arrive at the same moment are enforced by
+  the database (unique indexes, exclusion constraints), not only by a check in PHP.
 - All tables live in PostgreSQL's default `public` schema. Ownership is by the rule above,
   not by a schema per module: Laravel's migration and test tooling assumes one schema.
 - Controllers stay thin. Input rules live in Form Requests, the response shape in API
@@ -196,6 +202,10 @@ The payment follows the session:
 13. Recruiter verification: a new profile is `pending`. An `approved` recruiter stays approved
     when they edit their profile. A `rejected` recruiter who submits again goes back to
     `pending`. Only an admin changes the status otherwise.
+14. Offerings: one active offering per recruiter, session type, mode and duration
+    (`409 OFFERING_EXISTS`). Price is 50 to 10,000 EGP. Publishing offerings or slots needs
+    an approved profile. Changing a price never changes sessions that are already booked.
+15. Search lists only approved recruiters with at least one active offering.
 
 ---
 

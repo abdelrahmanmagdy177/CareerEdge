@@ -5,3 +5,4 @@
 
 require app_path('Modules/Identity/routes.php');
 require app_path('Modules/Profiles/routes.php');
+require app_path('Modules/Scheduling/routes.php');
