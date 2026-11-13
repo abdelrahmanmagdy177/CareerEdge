@@ -2,7 +2,9 @@
 
 namespace App\Modules\Profiles\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 
 class RecruiterProfileRequest extends FormRequest
 {
@@ -40,13 +42,13 @@ class RecruiterProfileRequest extends FormRequest
      * Errors on list items are reported as "specializationIds.0", "languages.1" and so on.
      * The client only has one input per list, so fold them into the list's own key.
      */
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator): never
+    protected function failedValidation(Validator $validator): never
     {
         $errors = [];
         foreach ($validator->errors()->toArray() as $field => $messages) {
             $errors[explode('.', $field)[0]] = [$messages[0]];
         }
 
-        throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        throw ValidationException::withMessages($errors);
     }
 }

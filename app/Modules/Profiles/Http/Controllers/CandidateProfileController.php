@@ -5,6 +5,7 @@ namespace App\Modules\Profiles\Http\Controllers;
 use App\Modules\Profiles\Http\Requests\CandidateProfileRequest;
 use App\Modules\Profiles\Http\Resources\CandidateProfileResource;
 use App\Modules\Profiles\Models\CandidateProfile;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class CandidateProfileController
@@ -19,7 +20,7 @@ final class CandidateProfileController
     }
 
     /** PUT /me/candidate-profile: creates the profile, or replaces all of it. */
-    public function upsert(CandidateProfileRequest $request): CandidateProfileResource
+    public function upsert(CandidateProfileRequest $request): JsonResponse
     {
         $data = $request->validated();
 
@@ -35,6 +36,8 @@ final class CandidateProfileController
             ],
         );
 
-        return new CandidateProfileResource($profile->load('specialization'));
+        // Always 200, as the contract says. Left alone, Laravel answers 201 the first time,
+        // because the resource wraps a model that was just created.
+        return (new CandidateProfileResource($profile->load('specialization')))->response()->setStatusCode(200);
     }
 }

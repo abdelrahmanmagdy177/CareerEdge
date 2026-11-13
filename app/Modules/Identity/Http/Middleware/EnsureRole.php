@@ -1,4 +1,4 @@
- <?php
+<?php
 
 namespace App\Modules\Identity\Http\Middleware;
 

@@ -19,8 +19,17 @@ abstract class TestCase extends BaseTestCase
      *   with a bad token (or none) would still look logged in.
      *
      * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
      */
-    protected function api(string $method, string $uri, array $data = [], ?string $token = null): TestResponse
+    protected function api(string $method, string $uri, array $data = [], ?string $token = null, array $headers = []): TestResponse
+    {
+        $this->asFreshClient($token);
+
+        return $this->json($method, '/api/v1'.$uri, $data, $headers);
+    }
+
+    /** Forgets the previous request's login and headers, then sets the token for the next one. */
+    protected function asFreshClient(?string $token = null): static
     {
         $this->app['auth']->forgetGuards();
         $this->flushHeaders();
@@ -29,7 +38,7 @@ abstract class TestCase extends BaseTestCase
             $this->withToken($token);
         }
 
-        return $this->json($method, '/api/v1'.$uri, $data);
+        return $this;
     }
 
     /**

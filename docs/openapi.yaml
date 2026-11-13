@@ -28,6 +28,7 @@ info:
     | RECRUITER_NOT_APPROVED | 403 | |
     | NOT_FOUND | 404 | also returned when the caller has no access |
     | EMAIL_TAKEN | 409 | |
+    | CV_LIMIT_REACHED | 409 | the candidate already has 5 CVs |
     | SLOT_UNAVAILABLE | 409 | |
     | SLOT_OVERLAP | 409 | |
     | CANDIDATE_TIME_CONFLICT | 409 | |
@@ -189,6 +190,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CandidateProfile' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: No profile yet (NOT_FOUND). `hasProfile` on the user tells the app this in advance.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
     put:
       operationId: upsertMyCandidateProfile
       tags: [Profiles]
@@ -219,11 +225,21 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/RecruiterProfile' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: No profile yet (NOT_FOUND). `hasProfile` on the user tells the app this in advance.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
     put:
       operationId: upsertMyRecruiterProfile
       tags: [Profiles]
       summary: Create or replace my recruiter profile
-      description: The first submission puts the profile in `pending` verification.
+      description: |
+        Replaces the whole profile. Optional fields that are left out become null.
+
+        Verification: a new profile starts as `pending`. An `approved` recruiter stays approved
+        when they edit. A `rejected` recruiter who submits again goes back to `pending` and the
+        note is cleared. `verificationStatus`, the rating and the counters cannot be set here.
       requestBody:
         required: true
         content:
@@ -292,6 +308,7 @@ paths:
               schema: { $ref: '#/components/schemas/Cv' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '413': { $ref: '#/components/responses/Problem' }
         '415': { $ref: '#/components/responses/Problem' }
 
@@ -1536,6 +1553,8 @@ components:
               value: { type: https://careeredge.dev/errors/already-reviewed, title: Session already reviewed, status: 409, code: ALREADY_REVIEWED, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
             EMAIL_TAKEN:
               value: { type: https://careeredge.dev/errors/email-taken, title: Email is already registered, status: 409, code: EMAIL_TAKEN, traceId: 00-4bf92f3577b34da6a3ce929d0e0e4736-01 }
+            CV_LIMIT_REACHED:
+              value: { type: https://careeredge.dev/errors/cv-limit-reached, title: Delete a CV before uploading another one, status: 409, code: CV_LIMIT_REACHED }
     TooManyRequests:
       description: Rate limited. See the `Retry-After` header.
       headers:

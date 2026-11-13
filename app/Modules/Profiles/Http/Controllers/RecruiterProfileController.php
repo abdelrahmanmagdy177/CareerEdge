@@ -6,6 +6,7 @@ use App\Modules\Profiles\Enums\VerificationStatus;
 use App\Modules\Profiles\Http\Requests\RecruiterProfileRequest;
 use App\Modules\Profiles\Http\Resources\RecruiterProfileResource;
 use App\Modules\Profiles\Models\RecruiterProfile;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -20,7 +21,7 @@ final class RecruiterProfileController
     }
 
     /** PUT /me/recruiter-profile: creates the profile, or replaces all of it. */
-    public function upsert(RecruiterProfileRequest $request): RecruiterProfileResource
+    public function upsert(RecruiterProfileRequest $request): JsonResponse
     {
         $user = $request->user();
         $data = $request->validated();
@@ -52,6 +53,10 @@ final class RecruiterProfileController
             return $profile;
         });
 
-        return new RecruiterProfileResource($profile->load('specializations'), $user->full_name);
+        // Always 200, as the contract says. Left alone, Laravel answers 201 the first time,
+        // because the resource wraps a model that was just created.
+        return (new RecruiterProfileResource($profile->load('specializations'), $user->full_name))
+            ->response()
+            ->setStatusCode(200);
     }
 }

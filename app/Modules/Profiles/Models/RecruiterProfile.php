@@ -30,6 +30,14 @@ class RecruiterProfile extends Model
 
     protected $keyType = 'string';
 
+    // Same defaults as the database columns. Without them a profile that was just created
+    // would show null here until it is read from the database again.
+    protected $attributes = [
+        'rating_avg' => 0,
+        'rating_count' => 0,
+        'cancellation_count' => 0,
+    ];
+
     // The verification and rating columns are deliberately not fillable: a recruiter must not
     // be able to approve or rate themselves by adding fields to the request.
     protected $fillable = ['user_id', 'bio', 'years_of_experience', 'current_title', 'linkedin_url', 'languages', 'timezone'];

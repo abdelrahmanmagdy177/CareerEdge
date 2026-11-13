@@ -35,12 +35,24 @@ composer install
 cp .env.example .env && php artisan key:generate
 
 docker compose up -d postgres          # PostgreSQL on localhost:5432 (or use your own server)
-php artisan migrate
+php artisan migrate --seed             # tables + the list of specializations
 php artisan serve --port=8080
 # → http://localhost:8080/health  and  http://localhost:8080/api/v1/...
 ```
 
 On Ubuntu the PostgreSQL driver is `sudo apt install php8.5-pgsql` (match your PHP version).
+
+**Upload size.** CVs can be up to 5 MB, but PHP's default limit is 2 MB, and PHP rejects a
+bigger file before the app sees it (the API then answers `413 FILE_TOO_LARGE`). On every
+server, set this in `php.ini`:
+
+```ini
+upload_max_filesize = 6M
+post_max_size = 8M
+```
+
+CV files are stored on the `local` disk (`storage/app/private`). For S3 or MinIO, install
+`league/flysystem-aws-s3-v3`, fill the `AWS_*` values in `.env`, and set `CV_DISK=s3`.
 
 ## Tests
 
@@ -57,7 +69,8 @@ Code style is Laravel Pint: `vendor/bin/pint`.
 ## Project layout
 
 ```
-app/Modules/Identity/      users, access tokens (Sanctum), rotating refresh tokens
+app/Modules/Identity/      users, access tokens (Sanctum), rotating refresh tokens, role check
+app/Modules/Profiles/      candidate and recruiter profiles, specializations, CV files
 app/Support/Http/          the contract's error format (problem+json) and date format
 routes/api.php             lists each module's routes; everything is under /api/v1
 tests/Feature/<Module>/    HTTP tests per module
@@ -74,5 +87,6 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 |---|---|
 | M0 Skeleton, error format, health check, CI | Done |
 | M1 Identity: register, login, refresh, logout, me | Done |
-| M2 Profiles, specializations, CV upload | Next |
-| M3–M8 | Not started |
+| M2 Profiles, specializations, CV upload | Done |
+| M3 Offerings, availability, recruiter search | Next |
+| M4–M8 | Not started |

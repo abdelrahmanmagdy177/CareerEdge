@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\HealthController;
 use App\Support\Http\ApiError;
+use App\Support\Http\Middleware\SetLocaleFromHeader;
 use App\Support\Http\ProblemRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // and no "Accept: application/json" header makes Laravel look for a route named "login"
         // and crash with a 500 instead of answering 401.
         $middleware->redirectGuestsTo(fn () => null);
+
+        // Every API request: choose Arabic or English from the Accept-Language header.
+        $middleware->api(append: [SetLocaleFromHeader::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // An ApiError is an expected answer to the client (wrong password, slot taken), not a bug to log.

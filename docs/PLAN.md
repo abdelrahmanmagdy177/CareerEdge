@@ -84,7 +84,7 @@ Rules:
 | Realtime chat | Laravel Reverb (WebSockets, Pusher protocol) | First-party. Pusher client libraries exist for Flutter, Kotlin and Swift |
 | Voice | LiveKit (self-hosted or cloud) behind a `VoiceProvider` interface | We never build WebRTC ourselves. The API only issues room tokens |
 | Background jobs | Laravel queues (database driver) + the scheduler | Slot hold expiry, auto-complete, payment release |
-| File storage | Laravel filesystem with the S3 driver (MinIO locally) | Temporary download URLs |
+| File storage | Laravel filesystem. The `local` disk in development, any S3-compatible store in production (`CV_DISK=s3`) | Both give signed, short-lived download URLs, so no extra service is needed to develop |
 | Payments | `PaymentGateway` interface with `PaymobGateway` and `FakeGateway` (dev/tests) | Tests never call a real gateway |
 | PDF | mPDF | Phase 2. Handles Arabic right-to-left text |
 | Transcription | `TranscriptionService` interface (Whisper API) | Phase 5 |
@@ -191,6 +191,11 @@ The payment follows the session:
     session ends, even if the candidate deletes it from their list (soft delete).
 11. A recruiter can read only the CV attached to their own session. A candidate can
     read only their own CVs.
+12. CVs: PDF or DOCX only, decided by the file's content and not its name. At most 5 MB each
+    and 5 per candidate (`409 CV_LIMIT_REACHED`). Download links are signed and live 5 minutes.
+13. Recruiter verification: a new profile is `pending`. An `approved` recruiter stays approved
+    when they edit their profile. A `rejected` recruiter who submits again goes back to
+    `pending`. Only an admin changes the status otherwise.
 
 ---
 

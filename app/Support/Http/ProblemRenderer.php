@@ -5,6 +5,7 @@ namespace App\Support\Http;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -44,6 +45,10 @@ final class ProblemRenderer
 
             // Keeps the Retry-After header that the throttle middleware put on the exception.
             $e instanceof TooManyRequestsHttpException => self::problem(429, 'RATE_LIMITED', 'Too many requests', headers: $e->getHeaders()),
+
+            // The whole request body was bigger than PHP's post_max_size, so Laravel stopped it
+            // before any controller ran. For the client this is the same as a file that is too big.
+            $e instanceof PostTooLargeException => self::problem(413, 'FILE_TOO_LARGE', 'The file must be 5 MB or smaller'),
 
             $e instanceof HttpExceptionInterface => self::problem($e->getStatusCode(), 'HTTP_ERROR', 'Request could not be handled', headers: $e->getHeaders()),
 
