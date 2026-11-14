@@ -49,7 +49,7 @@ final class HoldExpirer
             if ($changed) {
                 $cancelled++;
                 // After the transaction is saved, so listeners see the cancelled session.
-                SessionCancelled::dispatch($session->id);
+                event(new SessionCancelled($session->id));
             }
         }
 

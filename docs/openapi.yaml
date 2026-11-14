@@ -40,6 +40,8 @@ info:
     | REVIEW_WINDOW_CLOSED | 409 | |
     | DISPUTE_WINDOW_CLOSED | 409 | |
     | IDEMPOTENCY_KEY_REUSED | 422 | same key sent with a different body |
+    | IDEMPOTENCY_IN_PROGRESS | 409 | the first request with this key is still running; retry shortly |
+    | INVALID_SIGNATURE | 401 | payment webhook only |
     | FILE_TOO_LARGE | 413 | |
     | UNSUPPORTED_FILE_TYPE | 415 | |
     | RATE_LIMITED | 429 | |
@@ -586,6 +588,15 @@ paths:
         Holds the slot for 15 minutes and returns the session in `pending_payment`.
         Call `/sessions/{id}/checkout` next. The session starts at the slot start and
         lasts the offering's duration.
+
+        - `404`: the offering or slot does not exist, the slot is not this recruiter's, the
+          offering is switched off, or the recruiter is no longer approved.
+        - `400` on `slotId`: the slot is shorter than the offering. `400` on `cvId`: not one of
+          the candidate's own CVs, or missing for a `cv_review`.
+        - `409 SLOT_UNAVAILABLE`: someone else holds or booked the slot, or it already started.
+        - `409 CANDIDATE_TIME_CONFLICT`: the candidate has another session at that time.
+
+        The price is copied from the offering now and never changes afterwards.
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -610,6 +621,11 @@ paths:
       operationId: listMySessions
       tags: [Sessions]
       summary: My sessions (as candidate or recruiter, depending on my role)
+      description: |
+        A candidate sees their own sessions. A recruiter sees a session only once it has been
+        paid: unpaid attempts stay invisible to them. An admin sees all.
+        `upcoming` means not ended yet and in `pending_payment`, `confirmed` or `in_progress`.
+        `past` is everything else.
       parameters:
         - name: status
           in: query
@@ -675,8 +691,16 @@ paths:
       summary: Start payment for a pending session (candidate)
       description: |
         Returns a gateway URL to open in a webview or browser. The session becomes
-        `confirmed` only when the gateway webhook arrives. The app should watch
-        `SessionStatusChanged` or poll `GET /sessions/{id}`.
+        `confirmed` only when the gateway webhook arrives. The app should watch the
+        `session.status-changed` event or poll `GET /sessions/{id}`.
+
+        Calling it again while a payment is still open returns the same payment. After a
+        declined payment it opens a new one. `409 INVALID_SESSION_STATE` once the session is
+        paid, cancelled, or its 15 minutes are over. `returnUrl` may be an app deep link
+        (`careeredge://...`); the gateway adds `payment=success` or `payment=failed` to it.
+
+        In development the gateway is a fake one: `paymentUrl` opens a page served by this API
+        with a Pay and a Decline button, and no money moves.
       requestBody:
         required: false
         content:
@@ -913,7 +937,17 @@ paths:
       operationId: paymentWebhook
       tags: [Payments]
       summary: Gateway callback (server to server, not called by apps)
-      description: The HMAC is verified first. Idempotent on the gateway transaction reference.
+      description: |
+        The signature is verified first (`401 INVALID_SIGNATURE` if it is wrong). Idempotent on
+        the gateway reference: a repeated webhook changes nothing. Always `200` once the
+        signature is valid, also for an unknown payment. `404` for a provider that is not the
+        configured one.
+
+        If the money arrives after the session was already cancelled (the hold ran out), the
+        payment is refunded in full.
+
+        Fake gateway: body `{ reference, status: succeeded|failed, amountMinor, currency }`,
+        header `X-Signature` = hex HMAC-SHA256 of the raw body.
       security: []
       requestBody:
         required: true

@@ -32,4 +32,18 @@ return [
         'download_url_minutes' => 5,
     ],
 
+    'payments' => [
+        /*
+        | Which payment provider to use. Only "fake" exists so far: it moves no money and
+        | refuses to run in production.
+        */
+        'gateway' => env('PAYMENT_GATEWAY', 'fake'),
+
+        /*
+        | Signs the fake gateway's webhooks. Not a real secret: the fake gateway is for
+        | development and tests only.
+        */
+        'fake_webhook_secret' => env('FAKE_GATEWAY_WEBHOOK_SECRET', 'fake-gateway-secret'),
+    ],
+
 ];

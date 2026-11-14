@@ -2,6 +2,7 @@
 
 use App\Modules\Scheduling\Http\Controllers\OfferingController;
 use App\Modules\Scheduling\Http\Controllers\RecruiterDiscoveryController;
+use App\Modules\Scheduling\Http\Controllers\SessionController;
 use App\Modules\Scheduling\Http\Controllers\SlotController;
 use Illuminate\Support\Facades\Route;
 
@@ -10,6 +11,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/recruiters', [RecruiterDiscoveryController::class, 'search']);
     Route::get('/recruiters/{recruiter}', [RecruiterDiscoveryController::class, 'show'])->whereUuid('recruiter');
     Route::get('/recruiters/{recruiter}/slots', [RecruiterDiscoveryController::class, 'slots'])->whereUuid('recruiter');
+
+    // Sessions. The list and the details show each user only their own.
+    Route::get('/sessions', [SessionController::class, 'index']);
+    Route::get('/sessions/{session}', [SessionController::class, 'show'])->whereUuid('session');
+    Route::post('/sessions', [SessionController::class, 'store'])->middleware(['role:candidate', 'idempotent']);
 
     // A recruiter managing what they sell and when.
     Route::middleware('role:recruiter')->group(function () {

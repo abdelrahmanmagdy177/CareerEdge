@@ -3,9 +3,11 @@
 namespace App\Modules\Profiles;
 
 use App\Modules\Identity\Contracts\ProfileLookup;
+use App\Modules\Profiles\Contracts\ProfileDirectory;
 use App\Modules\Profiles\Contracts\RecruiterVerification;
 use App\Modules\Profiles\Contracts\SessionCvAccess;
 use App\Modules\Profiles\Http\Middleware\EnsureApprovedRecruiter;
+use App\Modules\Profiles\Services\EloquentProfileDirectory;
 use App\Modules\Profiles\Services\NoSessionsYet;
 use App\Modules\Profiles\Services\ProfileStatus;
 use App\Modules\Profiles\Services\RecruiterVerificationStatus;
@@ -21,7 +23,10 @@ class ProfilesServiceProvider extends ServiceProvider
         // What other modules may ask about a recruiter.
         $this->app->bind(RecruiterVerification::class, RecruiterVerificationStatus::class);
 
-        // bindIf: the Scheduling module will bind the real rule when it exists.
+        // What Scheduling needs when a session is booked and shown.
+        $this->app->bind(ProfileDirectory::class, EloquentProfileDirectory::class);
+
+        // bindIf: the Scheduling module binds the real rule.
         $this->app->bindIf(SessionCvAccess::class, NoSessionsYet::class);
     }
 

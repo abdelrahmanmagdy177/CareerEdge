@@ -32,7 +32,7 @@ final class SessionController
         $pageSize = (int) ($filters['pageSize'] ?? 20);
         $scope = $filters['scope'] ?? 'all';
 
-        $upcomingStatuses = array_filter(SessionStatus::cases(), fn (SessionStatus $s) => $s->isUpcoming());
+        $upcomingStatuses = array_values(array_filter(SessionStatus::cases(), fn (SessionStatus $s) => $s->isUpcoming()));
 
         $query = Session::query()
             ->visibleTo($user->id, $user->role->value)

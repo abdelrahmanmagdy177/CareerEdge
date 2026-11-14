@@ -4,6 +4,7 @@ use App\Http\Controllers\HealthController;
 use App\Support\Http\ApiError;
 use App\Support\Http\Middleware\SetLocaleFromHeader;
 use App\Support\Http\ProblemRenderer;
+use App\Support\Idempotency\EnsureIdempotent;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Every API request: choose Arabic or English from the Accept-Language header.
         $middleware->api(append: [SetLocaleFromHeader::class]);
+
+        // `idempotent` on a route: a retried POST with the same Idempotency-Key runs only once.
+        $middleware->alias(['idempotent' => EnsureIdempotent::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // An ApiError is an expected answer to the client (wrong password, slot taken), not a bug to log.

@@ -91,7 +91,7 @@ Rules:
 | Voice | LiveKit (self-hosted or cloud) behind a `VoiceProvider` interface | We never build WebRTC ourselves. The API only issues room tokens |
 | Background jobs | Laravel queues (database driver) + the scheduler | Slot hold expiry, auto-complete, payment release |
 | File storage | Laravel filesystem. The `local` disk in development, any S3-compatible store in production (`CV_DISK=s3`) | Both give signed, short-lived download URLs, so no extra service is needed to develop |
-| Payments | `PaymentGateway` interface with `PaymobGateway` and `FakeGateway` (dev/tests) | Tests never call a real gateway |
+| Payments | `PaymentGateway` interface. Only `FakeGateway` exists so far (development and tests); it refuses to run in production. A real gateway (Paymob) is one new class | Tests never call a real gateway |
 | PDF | mPDF | Phase 2. Handles Arabic right-to-left text |
 | Transcription | `TranscriptionService` interface (Whisper API) | Phase 5 |
 | Logging | Laravel logging, JSON channel in production | |
@@ -206,6 +206,13 @@ The payment follows the session:
     (`409 OFFERING_EXISTS`). Price is 50 to 10,000 EGP. Publishing offerings or slots needs
     an approved profile. Changing a price never changes sessions that are already booked.
 15. Search lists only approved recruiters with at least one active offering.
+16. A recruiter sees a session, its CV and its payment only once it has been paid. Before
+    that it is only a candidate's attempt.
+17. A payment that arrives after its session was cancelled (hold ran out) is refunded in
+    full. A payment that arrives after the 15 minutes but before the expiry job cancelled
+    the session still counts, because the slot was still held for that candidate.
+18. `Idempotency-Key`: the successful answer is stored for 24 hours per user and replayed.
+    Failed attempts are not stored, so the same key can be retried after fixing the cause.
 
 ---
 

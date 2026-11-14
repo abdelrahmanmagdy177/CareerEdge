@@ -37,6 +37,7 @@ cp .env.example .env && php artisan key:generate
 docker compose up -d postgres          # PostgreSQL on localhost:5432 (or use your own server)
 php artisan migrate --seed             # tables + the list of specializations
 php artisan serve --port=8080
+php artisan schedule:work              # in a second terminal: runs the background jobs
 # → http://localhost:8080/health  and  http://localhost:8080/api/v1/...
 ```
 
@@ -53,6 +54,18 @@ post_max_size = 8M
 
 CV files are stored on the `local` disk (`storage/app/private`). For S3 or MinIO, install
 `league/flysystem-aws-s3-v3`, fill the `AWS_*` values in `.env`, and set `CV_DISK=s3`.
+
+**Background jobs.** Unpaid bookings are released after 15 minutes by a scheduled command
+(`sessions:expire-holds`). It only runs while the scheduler runs: `php artisan schedule:work`
+in development, and in production one cron entry:
+
+```
+* * * * * cd /path/to/CareerEdge && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**Payments.** The only gateway so far is a fake one for development. `paymentUrl` opens a
+page served by this app with Pay and Decline buttons, and no money moves. It refuses to run
+when `APP_ENV=production`; a real gateway is one new class implementing `PaymentGateway`.
 
 ## Tests
 
@@ -71,7 +84,9 @@ Code style is Laravel Pint: `vendor/bin/pint`.
 ```
 app/Modules/Identity/      users, access tokens (Sanctum), rotating refresh tokens, role check
 app/Modules/Profiles/      candidate and recruiter profiles, specializations, CV files
-app/Modules/Scheduling/    offerings (services and prices), time slots, recruiter search
+app/Modules/Scheduling/    offerings (services and prices), time slots, recruiter search, sessions
+app/Modules/Payments/      checkout, payment webhook, the gateway interface and the fake gateway
+app/Support/Idempotency/   makes a retried POST with the same Idempotency-Key run only once
 app/Support/Http/          the contract's error format (problem+json) and date format
 routes/api.php             lists each module's routes; everything is under /api/v1
 tests/Feature/<Module>/    HTTP tests per module
@@ -90,5 +105,6 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 | M1 Identity: register, login, refresh, logout, me | Done |
 | M2 Profiles, specializations, CV upload | Done |
 | M3 Offerings, availability, recruiter search | Done |
-| M4 Booking and payment | Next |
-| M5–M8 | Not started |
+| M4 Booking and payment | Done |
+| M5 Live session: chat, join, end | Next |
+| M6–M8 | Not started |

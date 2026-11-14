@@ -3,7 +3,9 @@
 namespace App\Modules\Identity;
 
 use App\Modules\Identity\Contracts\ProfileLookup;
+use App\Modules\Identity\Contracts\UserDirectory;
 use App\Modules\Identity\Http\Middleware\EnsureRole;
+use App\Modules\Identity\Services\EloquentUserDirectory;
 use App\Modules\Identity\Services\NoProfilesYet;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -17,6 +19,9 @@ class IdentityServiceProvider extends ServiceProvider
     {
         // bindIf: the Profiles module can bind its own implementation without caring about load order.
         $this->app->bindIf(ProfileLookup::class, NoProfilesYet::class);
+
+        // Lets other modules show a user's name without reading the users table.
+        $this->app->bind(UserDirectory::class, EloquentUserDirectory::class);
     }
 
     public function boot(): void

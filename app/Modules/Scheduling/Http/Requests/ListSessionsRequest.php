@@ -3,8 +3,10 @@
 namespace App\Modules\Scheduling\Http\Requests;
 
 use App\Modules\Scheduling\Enums\SessionStatus;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ListSessionsRequest extends FormRequest
 {
@@ -40,13 +42,13 @@ class ListSessionsRequest extends FormRequest
     }
 
     /** Errors on one item ("status.1") are reported under "status". */
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator): never
+    protected function failedValidation(Validator $validator): never
     {
         $errors = [];
         foreach ($validator->errors()->toArray() as $field => $messages) {
             $errors[explode('.', $field)[0]] = [$messages[0]];
         }
 
-        throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        throw ValidationException::withMessages($errors);
     }
 }
