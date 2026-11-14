@@ -3,6 +3,7 @@
 namespace Tests\Feature\Scheduling;
 
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Models\Payment;
 use App\Modules\Scheduling\Broadcasts\SessionStatusChanged;
 use App\Modules\Scheduling\Enums\SessionStatus;
 use App\Modules\Scheduling\Enums\SlotStatus;
@@ -53,7 +54,8 @@ class CancellationTest extends TestCase
         return $this->api('POST', "/sessions/{$this->sessionId}/cancel", ['reason' => $reason], $this->tokenOf($who));
     }
 
-    private function recruiter(): array
+    /** The recruiter of the session under test. */
+    private function sara(): array
     {
         return $this->setup['recruiter'];
     }
@@ -113,24 +115,24 @@ class CancellationTest extends TestCase
         // One hour before: a candidate would get 50% here.
         $this->travelTo('2026-11-18 15:00:00');
 
-        $this->quote($this->recruiter())->assertOk()->assertExactJson([
+        $this->quote($this->sara())->assertOk()->assertExactJson([
             'refundPercent' => 100,
             'refundAmount' => ['amountMinor' => 45000, 'currency' => 'EGP'],
             'policy' => 'recruiter',
         ]);
 
-        $this->cancel($this->recruiter(), 'I am ill today.')->assertOk()
+        $this->cancel($this->sara(), 'I am ill today.')->assertOk()
             ->assertJson(['status' => 'cancelled', 'cancelledBy' => 'recruiter', 'paymentStatus' => 'refunded']);
 
         $this->assertSame(45000, $this->paymentOf($this->sessionId)->refunded_minor);
-        $this->api('GET', '/me/recruiter-profile', token: $this->tokenOf($this->recruiter()))->assertJson(['cancellationCount' => 1]);
+        $this->api('GET', '/me/recruiter-profile', token: $this->tokenOf($this->sara()))->assertJson(['cancellationCount' => 1]);
     }
 
     public function test_a_candidate_cancelling_does_not_count_against_the_recruiter(): void
     {
         $this->cancel($this->candidate)->assertOk();
 
-        $this->api('GET', '/me/recruiter-profile', token: $this->tokenOf($this->recruiter()))->assertJson(['cancellationCount' => 0]);
+        $this->api('GET', '/me/recruiter-profile', token: $this->tokenOf($this->sara()))->assertJson(['cancellationCount' => 0]);
     }
 
     public function test_when_the_candidate_cancels_the_slot_goes_back_on_sale(): void
@@ -143,7 +145,7 @@ class CancellationTest extends TestCase
 
     public function test_when_the_recruiter_cancels_the_slot_is_removed_not_resold(): void
     {
-        $this->cancel($this->recruiter())->assertOk();
+        $this->cancel($this->sara())->assertOk();
 
         $this->assertNull(AvailabilitySlot::find($this->setup['slot']['id']));
         // The cancelled session is still there, with its times.
@@ -182,7 +184,7 @@ class CancellationTest extends TestCase
         $this->assertSame(PaymentStatus::Failed, $this->paymentOf($unpaid)->status);
         $this->assertSame([], $this->fakeGateway()->refunds);
         // A late "paid" for that cancelled booking is refunded, not accepted.
-        \App\Modules\Payments\Models\Payment::whereKey($paymentId)->update(['status' => PaymentStatus::Pending]);
+        Payment::whereKey($paymentId)->update(['status' => PaymentStatus::Pending]);
         $this->webhook($paymentId)->assertOk();
         $this->assertSame(PaymentStatus::Refunded, $this->paymentOf($unpaid)->status);
     }
@@ -191,7 +193,7 @@ class CancellationTest extends TestCase
     {
         // 450.01 EGP. Half of 45001 piasters is 22500.5, and money has no half piasters.
         Session::whereKey($this->sessionId)->update(['price_minor' => 45001]);
-        \App\Modules\Payments\Models\Payment::where('session_id', $this->sessionId)->update(['amount_minor' => 45001]);
+        Payment::where('session_id', $this->sessionId)->update(['amount_minor' => 45001]);
         $this->travelTo('2026-11-18 15:00:00');
 
         $this->quote($this->candidate)->assertJson(['refundAmount' => ['amountMinor' => 22500]]);
@@ -204,7 +206,7 @@ class CancellationTest extends TestCase
     {
         $this->travelTo('2026-11-18 16:00:00');
 
-        foreach ([$this->candidate, $this->recruiter()] as $who) {
+        foreach ([$this->candidate, $this->sara()] as $who) {
             $this->assertProblem($this->quote($who), 409, 'INVALID_SESSION_STATE');
             $this->assertProblem($this->cancel($who), 409, 'INVALID_SESSION_STATE');
         }
@@ -239,7 +241,7 @@ class CancellationTest extends TestCase
         $this->cancel($this->candidate)->assertOk();
 
         $this->assertProblem($this->cancel($this->candidate), 409, 'INVALID_SESSION_STATE');
-        $this->assertProblem($this->cancel($this->recruiter()), 409, 'INVALID_SESSION_STATE');
+        $this->assertProblem($this->cancel($this->sara()), 409, 'INVALID_SESSION_STATE');
 
         $this->assertCount(1, $this->fakeGateway()->refunds);
         $this->assertSame('candidate', Session::findOrFail($this->sessionId)->cancelled_by);

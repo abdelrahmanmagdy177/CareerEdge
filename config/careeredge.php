@@ -15,6 +15,12 @@ return [
     'auth_rate_limit_per_minute' => (int) env('AUTH_RATE_LIMIT_PER_MINUTE', 10),
 
     /*
+    | Every login attempt takes at least this long, so a wrong email and a wrong password
+    | cannot be told apart by timing. The test suite sets it to 0 to stay fast.
+    */
+    'login_min_milliseconds' => (int) env('LOGIN_MIN_MILLISECONDS', 200),
+
+    /*
     | Chat messages one user may send per minute.
     */
     'messages_per_minute' => (int) env('MESSAGES_PER_MINUTE', 30),

@@ -213,6 +213,13 @@ The payment follows the session:
     the session still counts, because the slot was still held for that candidate.
 18. `Idempotency-Key`: the successful answer is stored for 24 hours per user and replayed.
     Failed attempts are not stored, so the same key can be retried after fixing the cause.
+19. Money after the session: a completed session's payment is released to the recruiter
+    24 hours later. A dispute in that time freezes it until an admin decides. A no-show
+    (the recruiter never joined) refunds the candidate in full.
+20. Cancelling: the candidate's slot goes back on sale; a recruiter's cancelled slot is
+    removed. In a 50% refund the other half is the recruiter's at once. Half piasters are
+    rounded down.
+21. A disputed session cannot be reviewed. A review given before the dispute stays.
 
 ---
 
