@@ -48,8 +48,7 @@ app/
     Scheduling/                     # offerings, availability slots, sessions, state machine
     Messaging/                      # chat messages, broadcasting
     Payments/                       # payment holds, gateway abstraction, webhooks
-    Reviews/
-    Admin/
+    Reviews/                        # reviews, recruiter ratings, disputes
     Scorecards/        (phase 2)
     QuestionBank/      (phase 3)
     Salary/            (phase 4)
@@ -220,6 +219,13 @@ The payment follows the session:
     removed. In a 50% refund the other half is the recruiter's at once. Half piasters are
     rounded down.
 21. A disputed session cannot be reviewed. A review given before the dispute stays.
+22. Admins: there is no Admin module. Each admin endpoint lives in the module that owns
+    the data it changes (recruiter verification in Profiles, disputes in Reviews), behind
+    the `role:admin` check. An admin is created only with `php artisan admin:create` on
+    the server.
+23. A dispute is decided once by an admin: refund the candidate in full (session
+    `refunded`), or pay the recruiter now (session back to `completed`). The dispute, the
+    session and the payment change in one transaction.
 
 ---
 

@@ -9,6 +9,7 @@ use App\Modules\Payments\Http\Controllers\FakeCheckoutController;
 use App\Modules\Payments\Listeners\SettleOnSessionEvents;
 use App\Modules\Payments\Services\PaymentStatuses;
 use App\Modules\Scheduling\Contracts\PaymentStatusLookup;
+use App\Modules\Scheduling\Events\DisputeResolved;
 use App\Modules\Scheduling\Events\SessionCancelled;
 use App\Modules\Scheduling\Events\SessionCompleted;
 use App\Modules\Scheduling\Events\SessionDisputed;
@@ -59,6 +60,7 @@ class PaymentsServiceProvider extends ServiceProvider
         Event::listen(SessionNoShow::class, [SettleOnSessionEvents::class, 'noShow']);
         Event::listen(SessionCompleted::class, [SettleOnSessionEvents::class, 'completed']);
         Event::listen(SessionDisputed::class, [SettleOnSessionEvents::class, 'disputed']);
+        Event::listen(DisputeResolved::class, [SettleOnSessionEvents::class, 'disputeResolved']);
 
         $this->commands([ReleaseDuePayments::class]);
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {

@@ -5,6 +5,7 @@ namespace App\Modules\Payments\Listeners;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\Payment;
 use App\Modules\Payments\Services\PaymentSettlement;
+use App\Modules\Scheduling\Events\DisputeResolved;
 use App\Modules\Scheduling\Events\SessionCancelled;
 use App\Modules\Scheduling\Events\SessionCompleted;
 use App\Modules\Scheduling\Events\SessionDisputed;
@@ -44,5 +45,13 @@ final class SettleOnSessionEvents
     public function disputed(SessionDisputed $event): void
     {
         $this->settlement->freeze($event->sessionId);
+    }
+
+    /** An admin decided: everything back to the candidate, or pay the recruiter now. */
+    public function disputeResolved(DisputeResolved $event): void
+    {
+        $event->refundCandidate
+            ? $this->settlement->refund($event->sessionId, 100)
+            : $this->settlement->release($event->sessionId);
     }
 }
