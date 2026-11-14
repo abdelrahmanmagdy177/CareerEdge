@@ -30,6 +30,7 @@ info:
     | EMAIL_TAKEN | 409 | |
     | CV_LIMIT_REACHED | 409 | the candidate already has 5 CVs |
     | OFFERING_EXISTS | 409 | an active offering with the same type, mode and duration exists |
+    | DISPUTE_ALREADY_RESOLVED | 409 | admin only |
     | SLOT_UNAVAILABLE | 409 | |
     | SLOT_OVERLAP | 409 | |
     | CANDIDATE_TIME_CONFLICT | 409 | |
@@ -1015,6 +1016,11 @@ paths:
       operationId: adminListRecruiters
       tags: [Admin]
       summary: List recruiters by verification status
+      description: |
+        The review queue. The recruiter waiting longest comes first, and one who resubmits
+        goes to the back. All `/admin` endpoints need the `admin` role (`403 FORBIDDEN_ROLE`
+        otherwise). Admins are created on the server with `php artisan admin:create`,
+        never through this API.
       parameters:
         - name: verificationStatus
           in: query
@@ -1044,6 +1050,11 @@ paths:
       operationId: adminVerifyRecruiter
       tags: [Admin]
       summary: Approve or reject a recruiter
+      description: |
+        Takes effect at once: an approved recruiter can publish and is found in search, a
+        rejected one disappears from search and cannot be booked. A rejection needs a `note`,
+        which the recruiter reads on their own profile. Either decision can be reversed
+        later. `404` if the user has no recruiter profile.
       requestBody:
         required: true
         content:
@@ -1069,6 +1080,7 @@ paths:
       operationId: adminListDisputes
       tags: [Admin]
       summary: List disputes
+      description: The oldest first, so the queue is worked in order.
       parameters:
         - name: status
           in: query
@@ -1101,6 +1113,9 @@ paths:
       description: |
         `refund`: the payment is refunded in full and the session becomes `refunded`.
         `release`: the session goes back to `completed` and the payment is released immediately.
+
+        A dispute is decided once: `409 DISPUTE_ALREADY_RESOLVED` afterwards. After `release`
+        the candidate can still review the session. After `refund` they cannot.
       requestBody:
         required: true
         content:
@@ -1655,6 +1670,8 @@ components:
               value: { type: https://careeredge.dev/errors/cv-limit-reached, title: Delete a CV before uploading another one, status: 409, code: CV_LIMIT_REACHED }
             OFFERING_EXISTS:
               value: { type: https://careeredge.dev/errors/offering-exists, title: 'You already have an active offering with this type, mode and duration', status: 409, code: OFFERING_EXISTS }
+            DISPUTE_ALREADY_RESOLVED:
+              value: { type: https://careeredge.dev/errors/dispute-already-resolved, title: This dispute was already resolved, status: 409, code: DISPUTE_ALREADY_RESOLVED }
     TooManyRequests:
       description: Rate limited. See the `Retry-After` header.
       headers:

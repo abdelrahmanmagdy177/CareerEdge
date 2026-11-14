@@ -76,6 +76,15 @@ LiveKit project, set `VOICE_PROVIDER=livekit` and fill the three `LIVEKIT_*` val
 page served by this app with Pay and Decline buttons, and no money moves. It refuses to run
 when `APP_ENV=production`; a real gateway is one new class implementing `PaymentGateway`.
 
+**Admins.** Create the first admin on the server. You are asked for the password:
+
+```bash
+php artisan admin:create admin@example.com --name="Site Admin"
+```
+
+Admins approve recruiters (`/admin/recruiters`) and settle disputes (`/admin/disputes`).
+New recruiters cannot publish or be found until an admin approves them.
+
 ## Tests
 
 ```bash
@@ -119,5 +128,5 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 | M4 Booking and payment | Done |
 | M5 Live session: chat, join, end | Done |
 | M6 Cancellation, refunds, disputes, reviews | Done |
-| M7 Admin: approve recruiters, resolve disputes | Next |
-| M8 Contract conformance test | Not started |
+| M7 Admin: approve recruiters, resolve disputes | Done |
+| M8 Contract conformance test | Next |

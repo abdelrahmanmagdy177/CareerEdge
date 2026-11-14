@@ -2,6 +2,7 @@
 
 namespace App\Modules\Identity;
 
+use App\Modules\Identity\Console\CreateAdmin;
 use App\Modules\Identity\Contracts\ProfileLookup;
 use App\Modules\Identity\Contracts\UserDirectory;
 use App\Modules\Identity\Http\Middleware\EnsureRole;
@@ -27,6 +28,9 @@ class IdentityServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
+
+        // php artisan admin:create: the only way an admin comes to exist.
+        $this->commands([CreateAdmin::class]);
 
         // Other modules protect their routes with `role:candidate`, `role:recruiter` and so on.
         $this->app['router']->aliasMiddleware('role', EnsureRole::class);

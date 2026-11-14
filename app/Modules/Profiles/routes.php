@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Profiles\Http\Controllers\Admin\RecruiterVerificationController;
 use App\Modules\Profiles\Http\Controllers\CandidateProfileController;
 use App\Modules\Profiles\Http\Controllers\CvController;
 use App\Modules\Profiles\Http\Controllers\RecruiterProfileController;
@@ -23,6 +24,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:recruiter')->group(function () {
         Route::get('/me/recruiter-profile', [RecruiterProfileController::class, 'show']);
         Route::put('/me/recruiter-profile', [RecruiterProfileController::class, 'upsert']);
+    });
+
+    // Admins decide which recruiters may sell sessions.
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/recruiters', [RecruiterVerificationController::class, 'index']);
+        Route::post('/admin/recruiters/{recruiter}/verification', [RecruiterVerificationController::class, 'decide'])->whereUuid('recruiter');
     });
 
     // Any role: the owner, or later the recruiter of a session that uses this CV.
