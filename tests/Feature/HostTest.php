@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
 use Tests\TestCase;
@@ -14,6 +15,16 @@ class HostTest extends TestCase
     public function test_health_is_healthy_when_the_database_is_reachable(): void
     {
         $this->get('/health')->assertOk()->assertSee('Healthy');
+    }
+
+    public function test_the_app_starts_in_production_even_though_only_the_fake_payment_gateway_exists(): void
+    {
+        // What `composer install` does on a server or on CI before any .env exists: it boots
+        // the app in production mode. The fake gateway must refuse payments there, not
+        // refuse to let the whole app start.
+        $result = Process::path(base_path())->env(['APP_ENV' => 'production'])->run([PHP_BINARY, 'artisan', 'package:discover']);
+
+        $this->assertTrue($result->successful(), $result->output().$result->errorOutput());
     }
 
     public function test_an_unknown_route_returns_404_in_the_contract_error_format(): void

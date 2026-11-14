@@ -9,6 +9,10 @@ use App\Modules\Payments\Http\Controllers\FakeCheckoutController;
 use App\Modules\Payments\Listeners\SettleOnSessionEvents;
 use App\Modules\Payments\Services\PaymentStatuses;
 use App\Modules\Scheduling\Contracts\PaymentStatusLookup;
+use App\Modules\Scheduling\Events\SessionCancelled;
+use App\Modules\Scheduling\Events\SessionCompleted;
+use App\Modules\Scheduling\Events\SessionDisputed;
+use App\Modules\Scheduling\Events\SessionNoShow;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -45,7 +49,16 @@ class PaymentsServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
 
         // Refunds, payouts and freezes, in reaction to what happens to a session.
-        Event::subscribe(SettleOnSessionEvents::class);
+        //
+        // Registered as [class, method] pairs on purpose. Laravel then builds the listener
+        // only when an event is fired. Event::subscribe() would build it right here, at boot,
+        // and with it the payment gateway, which refuses to exist in production while only
+        // the fake gateway is configured. The whole app would fail to start, including
+        // `composer install` on a server that has no .env yet.
+        Event::listen(SessionCancelled::class, [SettleOnSessionEvents::class, 'cancelled']);
+        Event::listen(SessionNoShow::class, [SettleOnSessionEvents::class, 'noShow']);
+        Event::listen(SessionCompleted::class, [SettleOnSessionEvents::class, 'completed']);
+        Event::listen(SessionDisputed::class, [SettleOnSessionEvents::class, 'disputed']);
 
         $this->commands([ReleaseDuePayments::class]);
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
