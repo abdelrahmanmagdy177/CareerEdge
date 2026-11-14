@@ -7,6 +7,7 @@ use App\Modules\Scheduling\Http\Requests\BookSessionRequest;
 use App\Modules\Scheduling\Http\Requests\ListSessionsRequest;
 use App\Modules\Scheduling\Models\Session;
 use App\Modules\Scheduling\Services\SessionBooker;
+use App\Modules\Scheduling\Services\SessionLifecycle;
 use App\Modules\Scheduling\Services\SessionPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,5 +72,42 @@ final class SessionController
         $record = Session::query()->visibleTo($user->id, $user->role->value)->findOrFail($session);
 
         return response()->json($this->presenter->one($record));
+    }
+
+    /** POST /sessions/{session}/join: enter the session. For a voice session, also get the call pass. */
+    public function join(Request $request, string $session, SessionLifecycle $lifecycle): JsonResponse
+    {
+        $record = $this->asParticipant($request, $session);
+
+        $voice = $lifecycle->join($record, $request->user()->id);
+
+        return response()->json([
+            'session' => $this->presenter->one($record->refresh()),
+            'voice' => $voice,
+        ]);
+    }
+
+    /** POST /sessions/{session}/end: the recruiter ends a session that is in progress. */
+    public function end(Request $request, string $session, SessionLifecycle $lifecycle): JsonResponse
+    {
+        $record = $this->asParticipant($request, $session);
+
+        $lifecycle->end($record);
+
+        return response()->json($this->presenter->one($record->refresh()));
+    }
+
+    /**
+     * The session, if the caller is its candidate or its recruiter. Anyone else gets 404,
+     * and so does an admin: an admin can read a session but takes no part in it.
+     */
+    private function asParticipant(Request $request, string $sessionId): Session
+    {
+        $user = $request->user();
+        $record = Session::query()->visibleTo($user->id, $user->role->value)->findOrFail($sessionId);
+
+        abort_unless(in_array($user->id, [$record->candidate_id, $record->recruiter_id], true), 404);
+
+        return $record;
     }
 }

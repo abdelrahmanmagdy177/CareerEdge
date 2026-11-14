@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Identity\IdentityServiceProvider;
+use App\Modules\Messaging\MessagingServiceProvider;
 use App\Modules\Payments\PaymentsServiceProvider;
 use App\Modules\Profiles\ProfilesServiceProvider;
 use App\Modules\Scheduling\SchedulingServiceProvider;
@@ -14,4 +15,5 @@ return [
     ProfilesServiceProvider::class,
     SchedulingServiceProvider::class,
     PaymentsServiceProvider::class,
+    MessagingServiceProvider::class,
 ];

@@ -38,6 +38,7 @@ docker compose up -d postgres          # PostgreSQL on localhost:5432 (or use yo
 php artisan migrate --seed             # tables + the list of specializations
 php artisan serve --port=8080
 php artisan schedule:work              # in a second terminal: runs the background jobs
+php artisan reverb:start               # optional third terminal: live chat events (WebSocket on 8081)
 # → http://localhost:8080/health  and  http://localhost:8080/api/v1/...
 ```
 
@@ -63,6 +64,14 @@ in development, and in production one cron entry:
 * * * * * cd /path/to/CareerEdge && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+**Live events.** Chat messages and status changes are also pushed over WebSockets by Laravel
+Reverb. They are off by default (`BROADCAST_CONNECTION=log` writes them to the log). To turn
+them on, set `BROADCAST_CONNECTION=reverb` in `.env` and run `php artisan reverb:start`.
+Everything keeps working without it: the events are an extra on top of the REST API.
+
+**Voice.** `VOICE_PROVIDER=fake` returns placeholder call tokens. For real calls, create a
+LiveKit project, set `VOICE_PROVIDER=livekit` and fill the three `LIVEKIT_*` values.
+
 **Payments.** The only gateway so far is a fake one for development. `paymentUrl` opens a
 page served by this app with Pay and Decline buttons, and no money moves. It refuses to run
 when `APP_ENV=production`; a real gateway is one new class implementing `PaymentGateway`.
@@ -86,6 +95,7 @@ app/Modules/Identity/      users, access tokens (Sanctum), rotating refresh toke
 app/Modules/Profiles/      candidate and recruiter profiles, specializations, CV files
 app/Modules/Scheduling/    offerings (services and prices), time slots, recruiter search, sessions
 app/Modules/Payments/      checkout, payment webhook, the gateway interface and the fake gateway
+app/Modules/Messaging/     chat messages of a session, and the `message.sent` live event
 app/Support/Idempotency/   makes a retried POST with the same Idempotency-Key run only once
 app/Support/Http/          the contract's error format (problem+json) and date format
 routes/api.php             lists each module's routes; everything is under /api/v1
@@ -106,5 +116,6 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 | M2 Profiles, specializations, CV upload | Done |
 | M3 Offerings, availability, recruiter search | Done |
 | M4 Booking and payment | Done |
-| M5 Live session: chat, join, end | Next |
-| M6–M8 | Not started |
+| M5 Live session: chat, join, end | Done |
+| M6 Cancellation, refunds, disputes, reviews | Next |
+| M7–M8 | Not started |

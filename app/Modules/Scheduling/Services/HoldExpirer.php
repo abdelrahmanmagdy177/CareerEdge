@@ -2,11 +2,13 @@
 
 namespace App\Modules\Scheduling\Services;
 
+use App\Modules\Scheduling\Broadcasts\SessionStatusChanged;
 use App\Modules\Scheduling\Enums\SessionStatus;
 use App\Modules\Scheduling\Enums\SlotStatus;
 use App\Modules\Scheduling\Events\SessionCancelled;
 use App\Modules\Scheduling\Models\AvailabilitySlot;
 use App\Modules\Scheduling\Models\Session;
+use App\Support\Realtime;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -50,6 +52,7 @@ final class HoldExpirer
                 $cancelled++;
                 // After the transaction is saved, so listeners see the cancelled session.
                 event(new SessionCancelled($session->id));
+                Realtime::send(new SessionStatusChanged($session->id, SessionStatus::Cancelled));
             }
         }
 

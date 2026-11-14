@@ -88,7 +88,7 @@ Rules:
 | Auth | Laravel Sanctum access tokens (15 min) + our own rotating refresh tokens (30 days) | Sanctum tokens live in the database, so a logout kills them at once |
 | Validation | Form Requests | |
 | Realtime chat | Laravel Reverb (WebSockets, Pusher protocol) | First-party. Pusher client libraries exist for Flutter, Kotlin and Swift |
-| Voice | LiveKit (self-hosted or cloud) behind a `VoiceProvider` interface | We never build WebRTC ourselves. The API only issues room tokens |
+| Voice | LiveKit (self-hosted or cloud) behind a `VoiceProvider` interface. `VOICE_PROVIDER=fake` in development hands out placeholder tokens | We never build WebRTC ourselves. The API only issues room tokens, which are plain signed JWTs |
 | Background jobs | Laravel queues (database driver) + the scheduler | Slot hold expiry, auto-complete, payment release |
 | File storage | Laravel filesystem. The `local` disk in development, any S3-compatible store in production (`CV_DISK=s3`) | Both give signed, short-lived download URLs, so no extra service is needed to develop |
 | Payments | `PaymentGateway` interface. Only `FakeGateway` exists so far (development and tests); it refuses to run in production. A real gateway (Paymob) is one new class | Tests never call a real gateway |
@@ -239,7 +239,12 @@ pointed at our own server.
 - Each session has one private channel: `private-session.{sessionId}`. Only its two
   participants and admins may subscribe.
 - To subscribe, the client library calls `POST /api/v1/broadcasting/auth` with the normal
-  `Authorization: Bearer <access token>` header.
+  `Authorization: Bearer <access token>` header. Configure the library with that URL as its
+  auth endpoint, the WebSocket host and port of the Reverb server (8081 in development),
+  and the app key (`REVERB_APP_KEY`).
+- Live events are a convenience on top of REST. If the WebSocket server is down, requests
+  still succeed and the event is only logged, so the app must also refresh on its own
+  (when a screen opens, and after reconnecting).
 - **Messages are sent with `POST /sessions/{id}/messages` only.** The socket is for
   receiving. That keeps one code path for sending, and it still works when the socket is down.
 
@@ -249,7 +254,7 @@ pointed at our own server.
 | `session.status-changed` | server | `{ sessionId, status, at }` |
 | `session.ending-soon` | server | `{ sessionId, endsAt }` (5 min before the end) |
 | `scorecard.submitted` | server | `{ sessionId, scorecardId }` (phase 2) |
-| `client-typing` | the other participant | `{ userId }`. A client event ("whisper"): it goes straight to the other participant and is not stored |
+| `client-typing` | the other participant | `{ userId }`. A client event ("whisper"): it goes straight to the other participant and is not stored. Not tested yet |
 
 ---
 

@@ -14,6 +14,11 @@ return [
     */
     'auth_rate_limit_per_minute' => (int) env('AUTH_RATE_LIMIT_PER_MINUTE', 10),
 
+    /*
+    | Chat messages one user may send per minute.
+    */
+    'messages_per_minute' => (int) env('MESSAGES_PER_MINUTE', 30),
+
     'cv' => [
         /*
         | The filesystem disk (config/filesystems.php) that holds CV files. "local" keeps them
@@ -44,6 +49,20 @@ return [
         | development and tests only.
         */
         'fake_webhook_secret' => env('FAKE_GATEWAY_WEBHOOK_SECRET', 'fake-gateway-secret'),
+    ],
+
+    'voice' => [
+        /*
+        | "fake" returns a placeholder pass that opens no call. "livekit" signs real LiveKit
+        | access tokens with the project's key and secret.
+        */
+        'provider' => env('VOICE_PROVIDER', 'fake'),
+
+        'livekit' => [
+            'url' => env('LIVEKIT_URL', ''),
+            'api_key' => env('LIVEKIT_API_KEY', ''),
+            'api_secret' => env('LIVEKIT_API_SECRET', ''),
+        ],
     ],
 
 ];

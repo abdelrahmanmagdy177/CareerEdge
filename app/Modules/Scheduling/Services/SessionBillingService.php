@@ -2,12 +2,14 @@
 
 namespace App\Modules\Scheduling\Services;
 
+use App\Modules\Scheduling\Broadcasts\SessionStatusChanged;
 use App\Modules\Scheduling\Contracts\BillableSession;
 use App\Modules\Scheduling\Contracts\SessionBilling;
 use App\Modules\Scheduling\Enums\SessionStatus;
 use App\Modules\Scheduling\Enums\SlotStatus;
 use App\Modules\Scheduling\Models\AvailabilitySlot;
 use App\Modules\Scheduling\Models\Session;
+use App\Support\Realtime;
 use Illuminate\Support\Facades\DB;
 
 final class SessionBillingService implements SessionBilling
@@ -29,7 +31,7 @@ final class SessionBillingService implements SessionBilling
 
     public function confirmPaid(string $sessionId): bool
     {
-        return DB::transaction(function () use ($sessionId) {
+        $confirmed = DB::transaction(function () use ($sessionId) {
             // "Still waiting for payment" is part of the UPDATE. If the hold-expiry job
             // cancelled the session a moment ago, this changes nothing and we say so.
             $confirmed = Session::whereKey($sessionId)
@@ -49,5 +51,14 @@ final class SessionBillingService implements SessionBilling
 
             return true;
         });
+
+        if ($confirmed) {
+            // The payment webhook calls this inside its own transaction. afterCommit waits until
+            // that is saved, so an app that reacts to the event by fetching the session never
+            // reads the old status.
+            DB::afterCommit(fn () => Realtime::send(new SessionStatusChanged($sessionId, SessionStatus::Confirmed)));
+        }
+
+        return $confirmed;
     }
 }

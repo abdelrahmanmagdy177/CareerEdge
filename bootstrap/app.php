@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api/v1',
         then: fn () => Route::get('/health', HealthController::class),
     )
+    // The endpoint apps call to be let into a private live channel: POST /api/v1/broadcasting/auth,
+    // with the normal access token. The rules are in routes/channels.php.
+    ->withBroadcasting(__DIR__.'/../routes/channels.php', ['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum']])
     ->withMiddleware(function (Middleware $middleware): void {
         // There is no login page to send guests to. Without this, a request that has no token
         // and no "Accept: application/json" header makes Laravel look for a route named "login"

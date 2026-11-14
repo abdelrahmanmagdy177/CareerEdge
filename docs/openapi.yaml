@@ -789,8 +789,17 @@ paths:
       summary: Join a session (participants)
       description: |
         Records attendance. The first join moves the session `confirmed → in_progress`.
-        For `voice` sessions it also returns a voice room token. Calling it again
-        returns a fresh token. Allowed from scheduledStart - 10 min until scheduledEnd.
+        For `voice` sessions it also returns a voice room token, valid until 10 minutes after
+        the scheduled end. Calling it again returns a fresh token. For `chat` sessions `voice`
+        is null.
+
+        Allowed from scheduledStart - 10 min until scheduledEnd (`409 SESSION_NOT_JOINABLE`
+        outside it). `409 INVALID_SESSION_STATE` if the session is not `confirmed` or
+        `in_progress`. Only the candidate and the recruiter of the session can join; an admin
+        gets `404`.
+
+        Attendance decides how an unended session closes, 10 minutes after its scheduled end:
+        `completed` if the recruiter joined, `no_show` if they never did.
       responses:
         '200':
           description: OK
@@ -810,6 +819,10 @@ paths:
       operationId: endSession
       tags: [Sessions]
       summary: End an in-progress session (recruiter)
+      description: |
+        Only the session's own recruiter, and only while it is `in_progress`
+        (`409 INVALID_SESSION_STATE` otherwise). A session nobody ends is closed automatically
+        10 minutes after its scheduled end.
       responses:
         '200':
           description: Completed
@@ -830,6 +843,9 @@ paths:
       operationId: listMessages
       tags: [Chat]
       summary: Chat history, newest first (cursor-based)
+      description: |
+        Readable by the two participants and by admins, also after the session is over.
+        To load older messages, pass the id of the oldest message you have as `before`.
       parameters:
         - name: before
           in: query
@@ -854,7 +870,12 @@ paths:
       operationId: sendMessage
       tags: [Chat]
       summary: Send a message
-      description: Idempotent on `clientMessageId`. A duplicate returns 200 with the original message.
+      description: |
+        Idempotent on `clientMessageId` per sender: a duplicate returns 200 with the original
+        message, even if the chat has closed since. Only the two participants can send
+        (`403` for an admin). `409 CHAT_CLOSED` unless the session is `confirmed` or
+        `in_progress`. At most 30 messages a minute per user (`429 RATE_LIMITED`).
+        The other participant receives the message as the `message.sent` live event.
       requestBody:
         required: true
         content:
