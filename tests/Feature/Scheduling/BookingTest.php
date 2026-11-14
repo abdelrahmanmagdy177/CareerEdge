@@ -372,6 +372,25 @@ class BookingTest extends TestCase
         $this->book($this->token(), $setup['body'], $key)->assertCreated();
     }
 
+    public function test_a_slot_whose_booking_expired_can_be_deleted_by_the_recruiter(): void
+    {
+        $setup = $this->bookable();
+        $sessionId = $this->book($this->token(), $setup['body'])->assertCreated()->json('id');
+        $this->travel(16)->minutes();
+        $this->artisan('sessions:expire-holds')->assertSuccessful();
+        $recruiter = $this->api('POST', '/auth/login', [
+            'email' => $setup['recruiter']['user']['email'], 'password' => self::PASSWORD,
+        ])->json('accessToken');
+
+        // The cancelled session still remembers this slot. Deleting the slot must not fail.
+        $this->api('DELETE', "/me/slots/{$setup['slot']['id']}", token: $recruiter)->assertNoContent();
+
+        // The old session is kept, with its own times, just without the slot.
+        $session = Session::findOrFail($sessionId);
+        $this->assertNull($session->slot_id);
+        $this->assertSame('2026-11-16 16:00:00', $session->scheduled_start->format('Y-m-d H:i:s'));
+    }
+
     public function test_only_candidates_can_book(): void
     {
         $setup = $this->bookable();

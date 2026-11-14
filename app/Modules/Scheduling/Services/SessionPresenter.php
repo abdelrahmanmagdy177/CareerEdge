@@ -5,6 +5,7 @@ namespace App\Modules\Scheduling\Services;
 use App\Modules\Identity\Contracts\UserDirectory;
 use App\Modules\Profiles\Contracts\ProfileDirectory;
 use App\Modules\Scheduling\Contracts\PaymentStatusLookup;
+use App\Modules\Scheduling\Contracts\ReviewLookup;
 use App\Modules\Scheduling\Enums\SessionStatus;
 use App\Modules\Scheduling\Models\Session;
 use App\Support\Http\ApiDate;
@@ -13,8 +14,8 @@ use App\Support\Http\ApiDate;
  * Builds the `Session` schema of docs/openapi.yaml.
  *
  * A session shows names (Identity), a specialization and a CV (Profiles) and a payment status
- * (Payments). Those belong to other modules, so they are fetched through their interfaces,
- * once for the whole list: a page of 20 sessions costs 4 lookups, not 80.
+ * (Payments) and whether it was reviewed (Reviews). Those belong to other modules, so they are fetched through their interfaces,
+ * once for the whole list: a page of 20 sessions costs 5 lookups, not 100.
  */
 final class SessionPresenter
 {
@@ -22,6 +23,7 @@ final class SessionPresenter
         private readonly UserDirectory $users,
         private readonly ProfileDirectory $profiles,
         private readonly PaymentStatusLookup $payments,
+        private readonly ReviewLookup $reviews,
     ) {}
 
     /** @return array<string, mixed> */
@@ -42,6 +44,7 @@ final class SessionPresenter
         $specializations = $this->profiles->specializations($sessions->pluck('specialization_id')->filter()->all());
         $cvs = $this->profiles->cvs($sessions->pluck('cv_id')->filter()->all());
         $paymentStatuses = $this->payments->statusesFor($sessions->pluck('id')->all());
+        $reviewed = $this->reviews->reviewedSessionIds($sessions->pluck('id')->all());
 
         return $sessions->map(fn (Session $s) => [
             'id' => $s->id,
@@ -66,8 +69,8 @@ final class SessionPresenter
             'canJoinFrom' => ApiDate::format($s->scheduled_start->copy()->subMinutes(Session::JOIN_EARLY_MINUTES)),
             'cancelledBy' => $s->cancelled_by,
             'cancelReason' => $s->cancel_reason,
-            // Reviews arrive in milestone M6 and scorecards in phase 2.
-            'hasReview' => false,
+            'hasReview' => in_array($s->id, $reviewed, true),
+            // Scorecards arrive in phase 2.
             'hasScorecard' => false,
             'createdAt' => ApiDate::format($s->created_at),
         ])->all();

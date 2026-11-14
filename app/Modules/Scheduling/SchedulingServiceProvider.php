@@ -6,12 +6,16 @@ use App\Modules\Profiles\Contracts\SessionCvAccess;
 use App\Modules\Scheduling\Console\CloseFinishedSessions;
 use App\Modules\Scheduling\Console\ExpireHolds;
 use App\Modules\Scheduling\Contracts\PaymentStatusLookup;
+use App\Modules\Scheduling\Contracts\ReviewLookup;
 use App\Modules\Scheduling\Contracts\SessionAccess;
 use App\Modules\Scheduling\Contracts\SessionBilling;
+use App\Modules\Scheduling\Contracts\SessionOutcomes;
 use App\Modules\Scheduling\Services\NoPaymentsYet;
+use App\Modules\Scheduling\Services\NoReviewsYet;
 use App\Modules\Scheduling\Services\RecruiterSessionCvAccess;
 use App\Modules\Scheduling\Services\SessionAccessService;
 use App\Modules\Scheduling\Services\SessionBillingService;
+use App\Modules\Scheduling\Services\SessionOutcomesService;
 use App\Modules\Scheduling\Voice\FakeVoiceProvider;
 use App\Modules\Scheduling\Voice\LiveKitVoiceProvider;
 use App\Modules\Scheduling\Voice\VoiceProvider;
@@ -27,6 +31,10 @@ class SchedulingServiceProvider extends ServiceProvider
 
         // bindIf: the Payments module binds the real lookup.
         $this->app->bindIf(PaymentStatusLookup::class, NoPaymentsYet::class);
+
+        // What the Reviews module may ask and tell about sessions. bindIf: Reviews binds the lookup.
+        $this->app->bind(SessionOutcomes::class, SessionOutcomesService::class);
+        $this->app->bindIf(ReviewLookup::class, NoReviewsYet::class);
 
         // "May this user see this session?", for the chat module and the live channel.
         $this->app->bind(SessionAccess::class, SessionAccessService::class);

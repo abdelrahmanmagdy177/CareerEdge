@@ -7,6 +7,7 @@ use App\Modules\Scheduling\Http\Requests\BookSessionRequest;
 use App\Modules\Scheduling\Http\Requests\ListSessionsRequest;
 use App\Modules\Scheduling\Models\Session;
 use App\Modules\Scheduling\Services\SessionBooker;
+use App\Modules\Scheduling\Services\SessionCanceller;
 use App\Modules\Scheduling\Services\SessionLifecycle;
 use App\Modules\Scheduling\Services\SessionPresenter;
 use Illuminate\Http\JsonResponse;
@@ -93,6 +94,29 @@ final class SessionController
         $record = $this->asParticipant($request, $session);
 
         $lifecycle->end($record);
+
+        return response()->json($this->presenter->one($record->refresh()));
+    }
+
+    /** GET /sessions/{session}/cancellation-quote: what cancelling now would refund, without cancelling. */
+    public function cancellationQuote(Request $request, string $session, SessionCanceller $canceller): JsonResponse
+    {
+        $record = $this->asParticipant($request, $session);
+
+        return response()->json($canceller->quote($record, $request->user()->id));
+    }
+
+    /** POST /sessions/{session}/cancel */
+    public function cancel(Request $request, string $session, SessionCanceller $canceller): JsonResponse
+    {
+        $record = $this->asParticipant($request, $session);
+
+        $data = $request->validate(
+            ['reason' => ['bail', 'required', 'string', 'min:3', 'max:500']],
+            ['reason.*' => 'Give a reason of 3 to 500 characters.'],
+        );
+
+        $canceller->cancel($record, $request->user()->id, $data['reason']);
 
         return response()->json($this->presenter->one($record->refresh()));
     }

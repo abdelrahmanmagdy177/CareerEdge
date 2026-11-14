@@ -15,6 +15,12 @@ final readonly class Money
 
     public function __construct(public int $amountMinor, public string $currency = self::DEFAULT_CURRENCY) {}
 
+    /** The same currency with another amount. */
+    public function withAmount(int $amountMinor): self
+    {
+        return new self($amountMinor, $this->currency);
+    }
+
     /** @return array{amountMinor: int, currency: string} */
     public function toArray(): array
     {

@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string $candidate_id
  * @property string $recruiter_id
  * @property string $offering_id
- * @property string $slot_id
+ * @property string|null $slot_id
  * @property string|null $cv_id
  * @property string|null $specialization_id
  * @property SessionType $type

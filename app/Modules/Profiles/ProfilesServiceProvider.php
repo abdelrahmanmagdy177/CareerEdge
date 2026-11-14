@@ -4,10 +4,12 @@ namespace App\Modules\Profiles;
 
 use App\Modules\Identity\Contracts\ProfileLookup;
 use App\Modules\Profiles\Contracts\ProfileDirectory;
+use App\Modules\Profiles\Contracts\RecruiterStats;
 use App\Modules\Profiles\Contracts\RecruiterVerification;
 use App\Modules\Profiles\Contracts\SessionCvAccess;
 use App\Modules\Profiles\Http\Middleware\EnsureApprovedRecruiter;
 use App\Modules\Profiles\Services\EloquentProfileDirectory;
+use App\Modules\Profiles\Services\EloquentRecruiterStats;
 use App\Modules\Profiles\Services\NoSessionsYet;
 use App\Modules\Profiles\Services\ProfileStatus;
 use App\Modules\Profiles\Services\RecruiterVerificationStatus;
@@ -22,6 +24,9 @@ class ProfilesServiceProvider extends ServiceProvider
 
         // What other modules may ask about a recruiter.
         $this->app->bind(RecruiterVerification::class, RecruiterVerificationStatus::class);
+
+        // Where other modules report a recruiter's rating and cancellations.
+        $this->app->bind(RecruiterStats::class, EloquentRecruiterStats::class);
 
         // What Scheduling needs when a session is booked and shown.
         $this->app->bind(ProfileDirectory::class, EloquentProfileDirectory::class);

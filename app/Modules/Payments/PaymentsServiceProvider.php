@@ -2,13 +2,14 @@
 
 namespace App\Modules\Payments;
 
+use App\Modules\Payments\Console\ReleaseDuePayments;
 use App\Modules\Payments\Gateways\FakeGateway;
 use App\Modules\Payments\Gateways\PaymentGateway;
 use App\Modules\Payments\Http\Controllers\FakeCheckoutController;
-use App\Modules\Payments\Listeners\FailPendingPayments;
+use App\Modules\Payments\Listeners\SettleOnSessionEvents;
 use App\Modules\Payments\Services\PaymentStatuses;
 use App\Modules\Scheduling\Contracts\PaymentStatusLookup;
-use App\Modules\Scheduling\Events\SessionCancelled;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -43,7 +44,13 @@ class PaymentsServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
 
-        Event::listen(SessionCancelled::class, FailPendingPayments::class);
+        // Refunds, payouts and freezes, in reaction to what happens to a session.
+        Event::subscribe(SettleOnSessionEvents::class);
+
+        $this->commands([ReleaseDuePayments::class]);
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command(ReleaseDuePayments::class)->everyMinute()->withoutOverlapping();
+        });
 
         if (config('careeredge.payments.gateway') === 'fake' && ! $this->app->isProduction()) {
             Route::get('/fake-gateway/checkout/{reference}', [FakeCheckoutController::class, 'show']);

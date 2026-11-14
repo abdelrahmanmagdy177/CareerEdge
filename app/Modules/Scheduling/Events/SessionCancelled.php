@@ -8,5 +8,10 @@ namespace App\Modules\Scheduling\Events;
  */
 final readonly class SessionCancelled
 {
-    public function __construct(public string $sessionId) {}
+    /**
+     * @param  int  $refundPercent  how much of a held payment goes back to the candidate: 0, 50 or 100.
+     *                              Scheduling decides this (it owns the cancellation rules),
+     *                              and Payments only carries it out.
+     */
+    public function __construct(public string $sessionId, public int $refundPercent = 0) {}
 }

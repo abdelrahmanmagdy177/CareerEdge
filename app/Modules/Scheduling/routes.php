@@ -17,6 +17,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sessions/{session}', [SessionController::class, 'show'])->whereUuid('session');
     Route::post('/sessions', [SessionController::class, 'store'])->middleware(['role:candidate', 'idempotent']);
     Route::post('/sessions/{session}/join', [SessionController::class, 'join'])->whereUuid('session');
+    Route::get('/sessions/{session}/cancellation-quote', [SessionController::class, 'cancellationQuote'])->whereUuid('session');
+    Route::post('/sessions/{session}/cancel', [SessionController::class, 'cancel'])->whereUuid('session');
     Route::post('/sessions/{session}/end', [SessionController::class, 'end'])->whereUuid('session')->middleware('role:recruiter');
 
     // A recruiter managing what they sell and when.

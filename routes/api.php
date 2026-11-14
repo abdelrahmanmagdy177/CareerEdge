@@ -8,3 +8,4 @@ require app_path('Modules/Profiles/routes.php');
 require app_path('Modules/Scheduling/routes.php');
 require app_path('Modules/Payments/routes.php');
 require app_path('Modules/Messaging/routes.php');
+require app_path('Modules/Reviews/routes.php');
