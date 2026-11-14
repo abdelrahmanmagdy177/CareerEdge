@@ -9,23 +9,15 @@ use App\Modules\Scheduling\Events\SessionCancelled;
 use App\Modules\Scheduling\Events\SessionCompleted;
 use App\Modules\Scheduling\Events\SessionDisputed;
 use App\Modules\Scheduling\Events\SessionNoShow;
-use Illuminate\Events\Dispatcher;
 
 /**
  * Everything Payments does in reaction to what happens to a session. Scheduling announces
  * the events and knows nothing about money. This is the one place the two are connected.
+ * Which method handles which event is listed in PaymentsServiceProvider.
  */
 final class SettleOnSessionEvents
 {
     public function __construct(private readonly PaymentSettlement $settlement) {}
-
-    public function subscribe(Dispatcher $events): void
-    {
-        $events->listen(SessionCancelled::class, [self::class, 'cancelled']);
-        $events->listen(SessionNoShow::class, [self::class, 'noShow']);
-        $events->listen(SessionCompleted::class, [self::class, 'completed']);
-        $events->listen(SessionDisputed::class, [self::class, 'disputed']);
-    }
 
     public function cancelled(SessionCancelled $event): void
     {

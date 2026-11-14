@@ -96,6 +96,7 @@ app/Modules/Profiles/      candidate and recruiter profiles, specializations, CV
 app/Modules/Scheduling/    offerings (services and prices), time slots, recruiter search, sessions
 app/Modules/Payments/      checkout, payment webhook, the gateway interface and the fake gateway
 app/Modules/Messaging/     chat messages of a session, and the `message.sent` live event
+app/Modules/Reviews/       reviews, recruiter ratings, and disputes
 app/Support/Idempotency/   makes a retried POST with the same Idempotency-Key run only once
 app/Support/Http/          the contract's error format (problem+json) and date format
 routes/api.php             lists each module's routes; everything is under /api/v1
@@ -117,5 +118,6 @@ Phase 1 (Core MVP), milestones from [`docs/PLAN.md`](docs/PLAN.md) §6:
 | M3 Offerings, availability, recruiter search | Done |
 | M4 Booking and payment | Done |
 | M5 Live session: chat, join, end | Done |
-| M6 Cancellation, refunds, disputes, reviews | Next |
-| M7–M8 | Not started |
+| M6 Cancellation, refunds, disputes, reviews | Done |
+| M7 Admin: approve recruiters, resolve disputes | Next |
+| M8 Contract conformance test | Not started |

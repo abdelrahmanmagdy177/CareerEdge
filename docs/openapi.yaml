@@ -432,6 +432,7 @@ paths:
       operationId: listRecruiterReviews
       tags: [Recruiters]
       summary: Reviews of a recruiter, newest first
+      description: Only for approved recruiters (`404` otherwise). Each review shows the candidate's first name only.
       parameters:
         - { $ref: '#/components/parameters/Page' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -743,7 +744,19 @@ paths:
       operationId: getCancellationQuote
       tags: [Sessions]
       summary: Preview what cancelling now would refund
-      description: Lets the app show "you will get X back" before the user confirms.
+      description: |
+        Lets the app show "you will get X back" before the user confirms. The cancel endpoint
+        uses the same calculation, so the preview is what the user gets.
+
+        | who | when | refund | policy |
+        |---|---|---|---|
+        | candidate | more than 24h before the start | 100% | `candidate_early` |
+        | candidate | 24h or less before the start | 50% | `candidate_late` |
+        | recruiter | any time before the start | 100% | `recruiter` |
+        | candidate | session not paid yet | nothing to refund | `unpaid` |
+
+        `409 INVALID_SESSION_STATE` once the start time has come or the session is over.
+        Half piasters are rounded down.
       responses:
         '200':
           description: OK
@@ -760,6 +773,15 @@ paths:
       operationId: cancelSession
       tags: [Sessions]
       summary: Cancel a session (candidate or recruiter, before it starts)
+      description: |
+        Refunds by the policy shown in the cancellation quote. `paymentStatus` becomes
+        `refunded` (100%) or `partially_refunded` (50%; the other half goes to the recruiter).
+
+        When the candidate cancels, the slot goes back on sale. When the recruiter cancels,
+        the slot is removed and their `cancellationCount` goes up by one.
+
+        `409 INVALID_SESSION_STATE` once the start time has come, or if the session was
+        already cancelled or is over. Only the session's candidate and recruiter can cancel.
       requestBody:
         required: true
         content:
@@ -905,6 +927,10 @@ paths:
       operationId: createReview
       tags: [Reviews & Disputes]
       summary: Review a completed session (candidate, once, within 14 days)
+      description: |
+        Updates the recruiter's `ratingAvg` and `ratingCount`. `409 ALREADY_REVIEWED` for a
+        second review, `409 INVALID_SESSION_STATE` unless the session is `completed` (a
+        disputed session cannot be reviewed), `409 REVIEW_WINDOW_CLOSED` after 14 days.
       requestBody:
         required: true
         content:
@@ -927,7 +953,11 @@ paths:
       operationId: openDispute
       tags: [Reviews & Disputes]
       summary: Open a dispute on a completed session (candidate, within 24h of the end)
-      description: Moves the session to `disputed` and freezes the payment release.
+      description: |
+        Moves the session to `disputed` and freezes the payment release until an admin decides.
+        Without a dispute, the recruiter is paid 24 hours after the session completed.
+        `409 DISPUTE_WINDOW_CLOSED` after 24 hours, `409 INVALID_SESSION_STATE` unless the
+        session is `completed` (so also for a second dispute).
       requestBody:
         required: true
         content:

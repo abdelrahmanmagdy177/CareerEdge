@@ -13,9 +13,10 @@ use App\Support\Http\ApiDate;
 /**
  * Builds the `Session` schema of docs/openapi.yaml.
  *
- * A session shows names (Identity), a specialization and a CV (Profiles) and a payment status
- * (Payments) and whether it was reviewed (Reviews). Those belong to other modules, so they are fetched through their interfaces,
- * once for the whole list: a page of 20 sessions costs 5 lookups, not 100.
+ * A session shows names (Identity), a specialization and a CV (Profiles), a payment status
+ * (Payments) and whether it was reviewed (Reviews). Those belong to other modules, so they
+ * are fetched through their interfaces, once for the whole list: a page of 20 sessions
+ * costs 5 lookups, not 100.
  */
 final class SessionPresenter
 {

@@ -61,13 +61,13 @@ final class AuthController
         $email = User::normalizeEmail($request->validated('email'));
         $password = $request->validated('password');
 
-        // Timebox makes every attempt take at least 200 ms. Without it, "no such email" answers
+        // Timebox makes every attempt take at least 200 ms (configurable, 0 in tests). Without it, "no such email" answers
         // faster than "wrong password" (no hash to check), which tells an attacker which emails exist.
         $user = (new Timebox)->call(function () use ($email, $password): ?User {
             $user = User::where('email', $email)->first();
 
             return $user !== null && Hash::check($password, $user->password) ? $user : null;
-        }, 200_000);
+        }, config('careeredge.login_min_milliseconds') * 1000);
 
         // Same error for both cases, for the same reason.
         if ($user === null) {
